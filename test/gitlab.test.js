@@ -96,6 +96,17 @@ test('mapTodo falls back to the body when target is null', async () => {
   });
 });
 
+test('mapTodo takes the title from the target even when body carries different text', async () => {
+  const [, , todo] = await fixture('todos');
+  const mapped = mapTodo(todo);
+  // A `mentioned` to-do carries the note text in `body` and the merge request's title in
+  // `target`, so this is the case that distinguishes the two fallback orders.
+  assert.equal(mapped.title, 'Replace the retry loop with a single alarm');
+  assert.notEqual(mapped.title, todo.body);
+  assert.equal(mapped.url, 'https://gitlab.com/group/project/-/merge_requests/9#note_11');
+  assert.equal(mapped.createdAt, Date.UTC(2026, 8, 9, 10, 15, 0));
+});
+
 test('mapTodo tolerates a to-do stripped of every optional field', () => {
   assert.deepEqual(mapTodo({ id: 1 }), {
     id: 1,
