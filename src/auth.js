@@ -58,6 +58,12 @@ async function exchange(grant) {
   }
 
   const json = await response.json();
+  // A missing `expires_in` would make every later `Date.now() >= expiresAt - margin` check
+  // false, silently disabling lazy refresh for the whole session; a missing `access_token`
+  // would be stored as if it were a valid one. Both are unrecoverable by retrying.
+  if (typeof json.access_token !== 'string' || !Number.isFinite(json.expires_in)) {
+    throw new AuthError('Token endpoint returned a malformed response.', { terminal: true });
+  }
   return {
     accessToken: json.access_token,
     refreshToken: json.refresh_token,
@@ -125,12 +131,19 @@ async function performRefresh() {
     grant_type: 'refresh_token',
     refresh_token: usedRefreshToken,
   });
-  // The session can end, or another worker can rotate the pair, while this request is in
-  // flight. Writing unconditionally would restore a session the user has just signed out
-  // of, so the stored pair must still be the one this request went out with.
+  // The session can end, or another worker can already have rotated the pair, while this
+  // request is in flight, and the two cases call for opposite responses. A `null` `current`
+  // means the session genuinely ended — writing `next` unconditionally would resurrect a
+  // session the user has just signed out of, so this is terminal. A non-null `current` whose
+  // refresh token merely differs from the one this call used means a concurrent refresh
+  // already won and rotated to a newer, valid pair; that pair, not this stale response, is
+  // the session's true state, so it is returned rather than treated as a dead session.
   const { auth: current } = await read('auth');
-  if (current?.refreshToken !== usedRefreshToken) {
+  if (current === null) {
     throw new AuthError('Session ended while the token was being refreshed.', { terminal: true });
+  }
+  if (current.refreshToken !== usedRefreshToken) {
+    return current;
   }
   // GitLab rotates refresh tokens: the old one is invalid the moment this response arrives,
   // so the new pair must be persisted before anything else runs. Losing this write loses the
