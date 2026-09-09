@@ -1,9 +1,10 @@
-import { test } from 'node:test';
+import { test, describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import {
   ApiError,
+  apiGet,
   errorKindForStatus,
   mapMr,
   mapTodo,
@@ -164,5 +165,62 @@ test('mapMr tolerates an MR stripped of every optional field', () => {
     authorAvatar: '',
     updatedAt: 0,
     draft: false,
+  });
+});
+
+describe('apiGet', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('returns the parsed body, with nextPage empty when the header is absent', async () => {
+    globalThis.fetch = async () => new Response(JSON.stringify({ id: 42 }), { status: 200 });
+    assert.deepEqual(await apiGet('https://gitlab.com/api/v4/user', 'tok'), {
+      body: { id: 42 },
+      nextPage: '',
+    });
+  });
+
+  it('carries the x-next-page header value in nextPage when present', async () => {
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify([]), { status: 200, headers: { 'x-next-page': '2' } });
+    const result = await apiGet('https://gitlab.com/api/v4/todos', 'tok');
+    assert.equal(result.nextPage, '2');
+  });
+
+  it('sends the token as a Bearer Authorization header', async () => {
+    let seenHeaders;
+    globalThis.fetch = async (_url, init) => {
+      seenHeaders = init.headers;
+      return new Response('{}', { status: 200 });
+    };
+    await apiGet('https://gitlab.com/api/v4/user', 'secret-token');
+    assert.equal(seenHeaders.Authorization, 'Bearer secret-token');
+  });
+
+  it('throws ApiError with the real status and kind for a 401', async () => {
+    globalThis.fetch = async () => new Response(null, { status: 401 });
+    await assert.rejects(apiGet('https://gitlab.com/api/v4/user', 'tok'), (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 401);
+      assert.equal(error.kind, 'auth');
+      return true;
+    });
+  });
+
+  it('throws ApiError with the real status and kind for a 429', async () => {
+    globalThis.fetch = async () => new Response(null, { status: 429 });
+    await assert.rejects(apiGet('https://gitlab.com/api/v4/todos', 'tok'), (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 429);
+      assert.equal(error.kind, 'ratelimit');
+      return true;
+    });
   });
 });
