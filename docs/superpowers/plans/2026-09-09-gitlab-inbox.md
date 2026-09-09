@@ -10,6 +10,28 @@
 
 **Spec:** `docs/2026-09-09-gitlab-inbox-design.md`
 
+## Corrections after execution
+
+Execution is finished and this plan is otherwise left as-run, but three of its instructions
+were overridden during implementation and are recorded here so the plan stops contradicting
+the repository:
+
+1. **The `base64UrlEncode` test vector below (Task 2, Step 2) is wrong.** The plan asserts
+   `base64UrlEncode(new Uint8Array([0xff, 0xfe, 0xfd]))` equals `'_-79'`; the true value is
+   `'__79'` (`0xff 0xfe 0xfd` is `//79` in plain base64, and base64url substitutes *both*
+   slashes). The shipped `test/pkce.test.js` asserts `base64UrlEncode(new Uint8Array([0xfb,
+   0xff]))` equals `'-_8'` instead, because those two bytes exercise both substitutions
+   (`+` → `-` and `/` → `_`) in a single assertion without the arithmetic error.
+2. **The test command below (Task 1, both `package.json`'s test script and the README text it
+   also writes) is wrong.** The plan specifies `node --test test/`; on Node 24 this fails with
+   `MODULE_NOT_FOUND`, because it resolves `test/` as a module entry point rather than a test
+   directory. The shipped `package.json` and `README.md` use the glob form,
+   `node --test test/**/*.test.js`.
+3. **The `src/gitlab.js` doc comment specified below (Task 4) fails the plan's own gate.**
+   The plan's text for that comment ends "free of storage and `chrome.*`", whose `chrome.`
+   substring trips the plan's own `grep -n "chrome\." src/gitlab.js` verification step. The
+   shipped comment says "free of storage and any `chrome` extension API" instead.
+
 ## Global Constraints
 
 - **The repository root is the extension root.** The spec's §13 shows a `gitlab-inbox/` directory; that directory *is* this repository (`C:\Users\Mikhail.Sherstenniko\proj\gitlab-watch`). Do **not** create a nested `gitlab-inbox/` folder. `manifest.json`, `icons/`, `src/`, `test/`, `docs/` and `README.md` all sit at the repo root.
