@@ -1,5 +1,10 @@
-import { ALARM_NAME, ALARM_PERIOD_MINUTES, RATELIMIT_BACKOFF_MS } from './config.js';
-import { AuthError, getAccessToken, refresh, signOut } from './auth.js';
+import {
+  ALARM_NAME,
+  ALARM_PERIOD_MINUTES,
+  MANUAL_REFRESH_MIN_AGE_MS,
+  RATELIMIT_BACKOFF_MS,
+} from './config.js';
+import { AuthError, getAccessToken, refresh, signIn, signOut } from './auth.js';
 import {
   ApiError,
   apiGet,
@@ -188,4 +193,61 @@ chrome.runtime.onStartup.addListener(async () => {
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === ALARM_NAME) await poll();
+});
+
+/**
+ * A user-initiated refresh. Doing nothing while the snapshot is fresh stops a repeatedly
+ * clicked refresh button from becoming a request per click (design §7).
+ */
+async function refreshOnRequest() {
+  const { inbox } = await read('inbox');
+  if (inbox?.fetchedAt && Date.now() - inbox.fetchedAt < MANUAL_REFRESH_MIN_AGE_MS) {
+    return { ok: true, skipped: true };
+  }
+  await poll({ respectBackoff: false });
+  return { ok: true };
+}
+
+async function handleSignIn() {
+  try {
+    await signIn();
+  } catch (error) {
+    // The popup is gone by the time the authorization window takes focus, so the reason has
+    // to survive in storage for the next time it opens (design §10).
+    await setError(
+      'auth',
+      error instanceof AuthError ? error.message : 'Sign-in failed, please try again.',
+    );
+    await applyBadge();
+    throw error;
+  }
+  // A previous session's snapshot and its error must not leak into the new one.
+  await write({ inbox: null, backoffUntil: 0 });
+  await ensureAlarm();
+  await poll({ respectBackoff: false });
+  return { ok: true };
+}
+
+async function handleMessage(message) {
+  switch (message?.type) {
+    case 'signIn':
+      return handleSignIn();
+    case 'signOut':
+      await signOut();
+      await write({ inbox: null, backoffUntil: 0 });
+      await applyBadge();
+      return { ok: true };
+    case 'refresh':
+      return refreshOnRequest();
+    default:
+      return { ok: false, message: `Unknown message: ${message?.type}` };
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  handleMessage(message).then(sendResponse, (error) =>
+    sendResponse({ ok: false, message: error.message ?? String(error) }),
+  );
+  // Keeps the message channel open for the asynchronous sendResponse above.
+  return true;
 });

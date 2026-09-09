@@ -8,6 +8,7 @@
   "host_permissions": ["https://gitlab.com/*"],
   "background": { "service_worker": "src/background.js", "type": "module" },
   "action": {
+    "default_popup": "src/popup/popup.html",
     "default_icon": { "16": "icons/16.png", "32": "icons/32.png" }
   },
   "icons": {

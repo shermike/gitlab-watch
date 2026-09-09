@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>GitLab Inbox</title>
+  </head>
+  <body>
+    <section id="signin" class="signin" hidden>
+      <p id="signin-error" class="strip strip-error" hidden></p>
+      <p class="signin-lead">Sign in to see your GitLab to-dos and merge requests.</p>
+      <button id="signin-button" type="button" class="primary">Sign in with GitLab</button>
+    </section>
+
+    <section id="main" hidden>
+      <header class="header">
+        <img id="avatar" class="avatar" alt="" width="24" height="24" />
+        <span id="username" class="username"></span>
+        <button id="refresh" type="button" class="icon-button" title="Refresh" aria-label="Refresh">
+          &#x21bb;
+        </button>
+      </header>
+
+      <nav id="tabs" class="tabs" role="tablist">
+        <button type="button" class="tab" data-tab="todos" role="tab">
+          To-dos <span class="count" data-count="todos"></span>
+        </button>
+        <button type="button" class="tab" data-tab="reviews" role="tab">
+          Review <span class="count" data-count="reviews"></span>
+        </button>
+        <button type="button" class="tab" data-tab="mine" role="tab">
+          Mine <span class="count" data-count="mine"></span>
+        </button>
+      </nav>
+
+      <p id="warning" class="strip strip-warning" hidden></p>
+
+      <div class="scroll">
+        <div id="skeleton" class="skeleton" hidden>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+        </div>
+        <ul id="list" class="list"></ul>
+        <p id="empty" class="empty" hidden></p>
+        <p id="truncated" class="truncated" hidden></p>
+      </div>
+
+      <footer class="footer">
+        <span id="updated" class="updated"></span>
+        <button id="signout" type="button" class="link">Sign out</button>
+      </footer>
+    </section>
+
+    <template id="row-template">
+      <li>
+        <button type="button" class="row">
+          <img class="row-avatar" alt="" width="20" height="20" />
+          <span class="row-body">
+            <span class="row-title">
+              <span class="chip" hidden>Draft</span>
+              <span class="row-title-text"></span>
+            </span>
+            <span class="row-meta"></span>
+          </span>
+        </button>
+      </li>
+    </template>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
