@@ -30,8 +30,17 @@ function renderSignIn(inbox) {
   strip.hidden = message === '';
 }
 
+/**
+ * An empty `src` resolves to the document's own URL, so the browser would fetch the popup's
+ * own HTML as an image and paint a broken-image icon; the attribute is left unset instead.
+ */
+function setAvatar(img, url) {
+  if (url) img.src = url;
+  else img.removeAttribute('src');
+}
+
 function renderHeader(me) {
-  byId('avatar').src = me?.avatarUrl ?? '';
+  setAvatar(byId('avatar'), me?.avatarUrl ?? '');
   byId('username').textContent = me?.username ? `@${me.username}` : '';
 }
 
@@ -68,7 +77,7 @@ function buildRow(item, tab) {
   const button = node.querySelector('.row');
 
   const avatar = button.querySelector('.row-avatar');
-  avatar.src = item.authorAvatar ?? '';
+  setAvatar(avatar, item.authorAvatar ?? '');
   avatar.alt = item.authorName ?? '';
 
   button.querySelector('.chip').hidden = item.draft !== true;
@@ -77,7 +86,10 @@ function buildRow(item, tab) {
   button.title = item.title;
 
   button.addEventListener('click', () => {
-    if (item.url) chrome.tabs.create({ url: item.url });
+    // A to-do or MR whose target was deleted has no URL; the row must not look clickable by
+    // closing the popup with nothing to show for it.
+    if (!item.url) return;
+    chrome.tabs.create({ url: item.url });
     window.close();
   });
 
@@ -89,22 +101,27 @@ function renderList(inbox, activeTab) {
   const empty = byId('empty');
   const truncated = byId('truncated');
 
-  // No poll has ever succeeded: show the skeleton rather than three empty lists (design §9).
-  const noSnapshot = inbox === null;
+  // No poll has ever succeeded: either there is no snapshot at all, or the one on record is
+  // the placeholder `setError` fabricates before any fetch has completed, whose empty lists
+  // say nothing about what GitLab actually holds. Either way, show the skeleton rather than a
+  // false "no pending to-dos" (design §9).
+  const noSnapshot = inbox === null || inbox.fetchedAt === 0;
   byId('skeleton').hidden = !noSnapshot;
   byId('list').hidden = noSnapshot;
   warning.hidden = true;
   empty.hidden = true;
   truncated.hidden = true;
 
+  // The error strip reflects a failed poll regardless of whether a snapshot exists yet — the
+  // user still needs to know the poll failed even while the skeleton is showing.
+  if (inbox?.error) {
+    warning.textContent = inbox.error.message;
+    warning.hidden = false;
+  }
+
   if (noSnapshot) {
     byId('list').replaceChildren();
     return;
-  }
-
-  if (inbox.error) {
-    warning.textContent = inbox.error.message;
-    warning.hidden = false;
   }
 
   const items = inbox[activeTab] ?? [];

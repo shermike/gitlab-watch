@@ -41,6 +41,14 @@ body {
   background: var(--bg);
 }
 
+#main {
+  display: flex;
+  flex-direction: column;
+  /* Without a zero minimum, this flex item refuses to shrink below its content height and
+     the list's own overflow never engages. */
+  min-height: 0;
+}
+
 /* Sign-in */
 
 .signin {

@@ -29,6 +29,10 @@ const ERROR_MESSAGES = {
   unknown: 'Unexpected error talking to GitLab.',
 };
 
+// `ERROR_MESSAGES.network` promises a previous state that does not exist yet on the very
+// first poll — a network blip right after sign-in must not read as a confident all-clear.
+const NETWORK_ERROR_FIRST_RUN = 'GitLab is unreachable. Nothing has been fetched yet.';
+
 /**
  * One authenticated GET with the single retry design §10 allows: on 401, refresh once and
  * retry once. A second 401 propagates, and the caller ends the session.
@@ -78,14 +82,17 @@ function mostSevere(reasons) {
  */
 async function setError(kind, message) {
   const { inbox } = await read('inbox');
+  const fetchedAt = inbox?.fetchedAt ?? 0;
+  // Only the network message claims a previous state; a first-ever poll has none to show.
+  const wording = kind === 'network' && fetchedAt === 0 ? NETWORK_ERROR_FIRST_RUN : message;
   await write({
     inbox: {
       todos: inbox?.todos ?? [],
       reviews: inbox?.reviews ?? [],
       mine: inbox?.mine ?? [],
       truncated: inbox?.truncated ?? { todos: false, reviews: false, mine: false },
-      fetchedAt: inbox?.fetchedAt ?? 0,
-      error: { kind, message },
+      fetchedAt,
+      error: { kind, message: wording },
     },
   });
 }
@@ -120,8 +127,14 @@ async function applyBadge() {
 
 async function setBadge(text, color) {
   await chrome.action.setBadgeBackgroundColor({ color });
-  await chrome.action.setBadgeTextColor({ color: '#FFFFFF' });
   await chrome.action.setBadgeText({ text });
+  try {
+    // Chrome 110+ only, and the API most likely to differ between browsers; a default text
+    // colour is a far better outcome than a badge that stops updating.
+    await chrome.action.setBadgeTextColor({ color: '#FFFFFF' });
+  } catch {
+    // The badge is already drawn; the text colour is cosmetic.
+  }
 }
 
 /**
@@ -174,8 +187,12 @@ async function poll({ respectBackoff = true } = {}) {
   await applyBadge();
 }
 
-function ensureAlarm() {
-  return chrome.alarms.create(ALARM_NAME, { periodInMinutes: ALARM_PERIOD_MINUTES });
+/** Creates the poll alarm only when it is missing, leaving an existing schedule undisturbed. */
+async function ensureAlarm() {
+  const existing = await chrome.alarms.get(ALARM_NAME);
+  if (!existing) {
+    await chrome.alarms.create(ALARM_NAME, { periodInMinutes: ALARM_PERIOD_MINUTES });
+  }
 }
 
 // Listeners are registered at module scope: the worker is ephemeral and this file re-runs
@@ -194,6 +211,11 @@ chrome.runtime.onStartup.addListener(async () => {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === ALARM_NAME) await poll();
 });
+
+// Recovers from the alarm being lost by any path other than `onInstalled` or `onStartup` —
+// re-enabling a disabled extension, for one — since permanently stopped polling is the worst
+// failure mode this extension has.
+ensureAlarm();
 
 /**
  * A user-initiated refresh. Doing nothing while the snapshot is fresh stops a repeatedly
