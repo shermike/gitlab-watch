@@ -1,0 +1,10 @@
+{
+  "name": "gitlab-inbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pending GitLab to-dos and merge requests on your toolbar.",
+  "scripts": {
+    "test": "node --test test/"
+  }
+}
