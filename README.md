@@ -34,7 +34,7 @@ Loaded unpacked; not published to any store.
 npm test
 ```
 
-Runs `node --test test/` with no dependencies. It covers the pure modules only — PKCE, URL
+Runs `node --test test/**/*.test.js` with no dependencies. It covers the pure modules only — PKCE, URL
 building, response mapping, formatting. Everything browser-dependent is covered by the manual
 checklist.
 
