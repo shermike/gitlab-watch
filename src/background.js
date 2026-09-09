@@ -42,7 +42,7 @@ async function authorizedGet(url) {
 /** The numeric user id, required by both merge-request queries. Fetched once and cached. */
 async function ensureMe() {
   const { me } = await read('me');
-  if (me) return me;
+  if (me?.id) return me;
   const fresh = mapUser((await authorizedGet(userUrl())).body);
   await write({ me: fresh });
   return fresh;
@@ -53,6 +53,17 @@ function errorKind(error) {
   if (error instanceof ApiError) return error.kind;
   // `fetch` rejects with a TypeError when the machine is offline.
   return 'network';
+}
+
+// A poll's failure decides whether the session ends, throttles, or merely retries, so a
+// mixed failure must surface the most consequential cause: a 401 hidden behind a concurrent
+// 429 would leave a dead session showing a stale count for the whole backoff (design §8, §10).
+const KIND_SEVERITY = ['auth', 'ratelimit', 'network', 'unknown'];
+
+function mostSevere(reasons) {
+  return reasons.reduce((worst, reason) =>
+    KIND_SEVERITY.indexOf(errorKind(reason)) < KIND_SEVERITY.indexOf(errorKind(worst)) ? reason : worst,
+  );
 }
 
 /**
@@ -75,6 +86,9 @@ async function setError(kind, message) {
 }
 
 async function recordFailure(error) {
+  // The worker's own console is the only place a poll failure can be inspected; without this
+  // an unexpected error reaches the user as a generic network notice and leaves no stack.
+  console.error('poll failed', error);
   const kind = errorKind(error);
   if (kind === 'auth') await signOut();
   if (kind === 'ratelimit') await write({ backoffUntil: Date.now() + RATELIMIT_BACKOFF_MS });
@@ -128,8 +142,8 @@ async function poll({ respectBackoff = true } = {}) {
       authorizedGet(reviewsUrl(me.id)),
       authorizedGet(mineUrl(me.id)),
     ]);
-    const failed = results.find((result) => result.status === 'rejected');
-    if (failed) throw failed.reason;
+    const rejected = results.filter((result) => result.status === 'rejected');
+    if (rejected.length > 0) throw mostSevere(rejected.map((result) => result.reason));
 
     const [todos, reviews, mine] = results.map((result) => result.value);
     await write({

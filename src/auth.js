@@ -111,7 +111,7 @@ export async function signIn() {
     code,
     code_verifier: verifier,
   });
-  await write({ auth });
+  await write({ auth, me: null });
   return auth;
 }
 
@@ -120,10 +120,18 @@ async function performRefresh() {
   if (!auth?.refreshToken) {
     throw new AuthError('Not signed in.', { terminal: true });
   }
+  const usedRefreshToken = auth.refreshToken;
   const next = await exchange({
     grant_type: 'refresh_token',
-    refresh_token: auth.refreshToken,
+    refresh_token: usedRefreshToken,
   });
+  // The session can end, or another worker can rotate the pair, while this request is in
+  // flight. Writing unconditionally would restore a session the user has just signed out
+  // of, so the stored pair must still be the one this request went out with.
+  const { auth: current } = await read('auth');
+  if (current?.refreshToken !== usedRefreshToken) {
+    throw new AuthError('Session ended while the token was being refreshed.', { terminal: true });
+  }
   // GitLab rotates refresh tokens: the old one is invalid the moment this response arrives,
   // so the new pair must be persisted before anything else runs. Losing this write loses the
   // session (design §5.3).
