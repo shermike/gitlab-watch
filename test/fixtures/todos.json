@@ -1,0 +1,22 @@
+[
+  {
+    "id": 130,
+    "action_name": "review_requested",
+    "target_url": "https://gitlab.com/group/project/-/merge_requests/7",
+    "body": "Add rate limiting to the poller",
+    "created_at": "2026-09-09T09:00:00.000Z",
+    "project": { "path_with_namespace": "group/project" },
+    "author": { "name": "Ada Lovelace", "avatar_url": "https://gitlab.com/uploads/ada.png" },
+    "target": { "title": "Add rate limiting to the poller" }
+  },
+  {
+    "id": 131,
+    "action_name": "mentioned",
+    "target_url": "https://gitlab.com/group/other/-/commit/deadbeef#note_9",
+    "body": "mentioned you in a commit comment",
+    "created_at": "2026-09-09T08:30:00.000Z",
+    "project": { "path_with_namespace": "group/other" },
+    "author": { "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" },
+    "target": null
+  }
+]

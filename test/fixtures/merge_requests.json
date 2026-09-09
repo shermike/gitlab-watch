@@ -1,0 +1,22 @@
+[
+  {
+    "id": 900,
+    "iid": 7,
+    "title": "Add rate limiting to the poller",
+    "web_url": "https://gitlab.com/group/project/-/merge_requests/7",
+    "references": { "short": "!7", "relative": "!7", "full": "group/project!7" },
+    "author": { "name": "Ada Lovelace", "avatar_url": "https://gitlab.com/uploads/ada.png" },
+    "updated_at": "2026-09-09T09:20:00.000Z",
+    "draft": false
+  },
+  {
+    "id": 901,
+    "iid": 8,
+    "title": "Draft: Split the poller in two",
+    "web_url": "https://gitlab.com/group/project/-/merge_requests/8",
+    "references": { "short": "!8", "relative": "!8", "full": "group/project!8" },
+    "author": { "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" },
+    "updated_at": "2026-09-09T07:00:00.000Z",
+    "draft": true
+  }
+]
