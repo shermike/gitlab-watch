@@ -6,6 +6,7 @@
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0f2DtFTlnAYux6TGu8U/tK0gCLrtVUB4i/LuKXL+1/3WQSrnGQIeJvuLH4/9CsKS+0NLzwfW+O/XK0Tx8KZq0YM/vdSsOKHb7iwVM6lJ7DIMjwW1zFjdLmYZpCoe1yDdbMz3D4v+Mwdgyrw7v32fEoNX3hIciABbJlf5H25Vpczunkk2YybGeY0kXId62Q6WjSjw0fLDhhn9AFI/NouWM8RzZ0YzYt+AHyWGiqADJoySw8axvIVS4in/NiPrF4rBixyuJ9MtiplMZOEoEXlcFckePS4v5Mo5kJVDvaInirnQScgw+4otHm29nH4zpDpIHP0PcYaQmxJObQVNrbmFgQIDAQAB",
   "permissions": ["storage", "alarms", "identity"],
   "host_permissions": ["https://gitlab.com/*"],
+  "background": { "service_worker": "src/background.js", "type": "module" },
   "action": {
     "default_icon": { "16": "icons/16.png", "32": "icons/32.png" }
   },
