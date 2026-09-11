@@ -42,9 +42,9 @@ test('relativeTime survives a missing timestamp', () => {
   assert.equal(relativeTime(0, NOW), 'just now');
 });
 
-test('humaniseAction replaces underscores', () => {
-  assert.equal(humaniseAction('review_requested'), 'review requested');
-  assert.equal(humaniseAction('mentioned'), 'mentioned');
+test('humaniseAction replaces underscores and capitalises the first word only', () => {
+  assert.equal(humaniseAction('review_requested'), 'Review requested');
+  assert.equal(humaniseAction('mentioned'), 'Mentioned');
   assert.equal(humaniseAction(''), '');
   assert.equal(humaniseAction(undefined), '');
 });

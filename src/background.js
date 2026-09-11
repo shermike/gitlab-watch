@@ -17,7 +17,7 @@ import {
   userUrl,
 } from './gitlab.js';
 import { badgeText } from './format.js';
-import { read, write } from './store.js';
+import { badgeCount, read, write } from './store.js';
 
 const BADGE_COLOR = '#E24329';
 const BADGE_ERROR_COLOR = '#DB3B21';
@@ -108,12 +108,12 @@ async function recordFailure(error) {
 }
 
 /**
- * The badge is driven by the pending to-do count alone, so it matches the number GitLab shows
- * in its own header (design §3, §8). A network or rate-limit error leaves the last count
- * standing: it is still the best information available.
+ * The badge counts unread to-dos plus the merge requests awaiting the user's review
+ * (design §3, §8). A network or rate-limit error leaves the last count standing: it is still
+ * the best information available.
  */
 async function applyBadge() {
-  const { auth, inbox } = await read('auth', 'inbox');
+  const { auth, inbox, readIds } = await read('auth', 'inbox', 'readIds');
   if (inbox?.error?.kind === 'auth') {
     await setBadge('!', BADGE_ERROR_COLOR);
     return;
@@ -122,7 +122,7 @@ async function applyBadge() {
     await setBadge('', BADGE_COLOR);
     return;
   }
-  await setBadge(badgeText(inbox?.todos?.length ?? 0), BADGE_COLOR);
+  await setBadge(badgeText(badgeCount(inbox, readIds)), BADGE_COLOR);
 }
 
 async function setBadge(text, color) {
@@ -135,6 +135,19 @@ async function setBadge(text, color) {
   } catch {
     // The badge is already drawn; the text colour is cosmetic.
   }
+}
+
+/**
+ * Drops every read mark whose to-do has left the snapshot — done in GitLab, or its target
+ * deleted. Without it the map would grow for the life of the profile, and GitLab reusing an id
+ * would hide a fresh to-do the user has never seen.
+ */
+function pruneReadIds(readIds, snapshot) {
+  const kept = {};
+  for (const todo of snapshot.todos) {
+    if (readIds[todo.id]) kept[todo.id] = true;
+  }
+  return kept;
 }
 
 /**
@@ -164,23 +177,25 @@ async function poll({ respectBackoff = true } = {}) {
     if (rejected.length > 0) throw mostSevere(rejected.map((result) => result.reason));
 
     const [todos, reviews, mine] = results.map((result) => result.value);
-    await write({
-      inbox: {
-        todos: todos.body.map(mapTodo),
-        reviews: reviews.body.map(mapMr),
-        mine: mine.body.map(mapMr),
-        // A non-empty x-next-page means further pages exist; the popup says so rather than
-        // silently showing a partial list (design §7).
-        truncated: {
-          todos: todos.nextPage !== '',
-          reviews: reviews.nextPage !== '',
-          mine: mine.nextPage !== '',
-        },
-        fetchedAt: Date.now(),
-        error: null,
+    const snapshot = {
+      todos: todos.body.map(mapTodo),
+      reviews: reviews.body.map(mapMr),
+      mine: mine.body.map(mapMr),
+      // A non-empty x-next-page means further pages exist; the popup says so rather than
+      // silently showing a partial list (design §7).
+      truncated: {
+        todos: todos.nextPage !== '',
+        reviews: reviews.nextPage !== '',
+        mine: mine.nextPage !== '',
       },
-      backoffUntil: 0,
-    });
+      fetchedAt: Date.now(),
+      error: null,
+    };
+    // Read here rather than alongside `auth` at the top: the three requests above take as
+    // long as they take, and a `markRead` that lands while they are in flight must not be
+    // pruned away by a snapshot that predates it.
+    const { readIds } = await read('readIds');
+    await write({ inbox: snapshot, readIds: pruneReadIds(readIds, snapshot), backoffUntil: 0 });
   } catch (error) {
     await recordFailure(error);
   }
@@ -243,10 +258,25 @@ async function handleSignIn() {
     await applyBadge();
     throw error;
   }
-  // A previous session's snapshot and its error must not leak into the new one.
-  await write({ inbox: null, backoffUntil: 0 });
+  // A previous session's snapshot, its read marks and its error must not leak into the new one.
+  await write({ inbox: null, readIds: {}, backoffUntil: 0 });
   await ensureAlarm();
   await poll({ respectBackoff: false });
+  return { ok: true };
+}
+
+/**
+ * Hides one to-do from the list and from the badge count. The mark is all this extension can
+ * do about it: `read_api` cannot resolve a to-do in GitLab (design §2), so this is local and
+ * lasts exactly as long as the to-do stays in the snapshot.
+ */
+async function markRead({ id }) {
+  if (id === undefined || id === null) {
+    return { ok: false, message: `markRead needs a to-do id, got ${id}` };
+  }
+  const { readIds } = await read('readIds');
+  await write({ readIds: { ...readIds, [id]: true } });
+  await applyBadge();
   return { ok: true };
 }
 
@@ -256,11 +286,13 @@ async function handleMessage(message) {
       return handleSignIn();
     case 'signOut':
       await signOut();
-      await write({ inbox: null, backoffUntil: 0 });
+      await write({ inbox: null, readIds: {}, backoffUntil: 0 });
       await applyBadge();
       return { ok: true };
     case 'refresh':
       return refreshOnRequest();
+    case 'markRead':
+      return markRead(message);
     default:
       return { ok: false, message: `Unknown message: ${message?.type}` };
   }

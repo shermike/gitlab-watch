@@ -30,8 +30,8 @@
 }
 
 body {
-  /* Fixed 380 px wide, content capped at 560 px tall with the list scrolling (design §9). */
-  width: 380px;
+  /* Fixed 608 px wide, content capped at 560 px tall with the list scrolling (design §9). */
+  width: 608px;
   max-height: 560px;
   margin: 0;
   display: flex;
@@ -184,13 +184,25 @@ body {
   list-style: none;
 }
 
+/* The row is a list item holding two buttons rather than one button: opening the item and
+   marking it read are separate actions, and a button inside a button is not valid HTML. */
 .row {
   display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+.row-open {
+  display: flex;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 9px 12px;
   border: 0;
-  border-bottom: 1px solid var(--border);
   background: none;
   color: inherit;
   font: inherit;
@@ -198,8 +210,19 @@ body {
   cursor: pointer;
 }
 
-.row:hover {
-  background: var(--hover);
+.row-read {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.row-read:hover {
+  color: var(--fg);
 }
 
 .row-avatar {
@@ -220,6 +243,7 @@ body {
 }
 
 .row-title-text {
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

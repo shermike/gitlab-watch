@@ -8,7 +8,8 @@ Status: approved, ready for implementation planning
 A browser extension (Chrome and Microsoft Edge, one codebase) that keeps a single
 GitLab.com account's review workload visible without opening GitLab:
 
-- a badge on the toolbar icon showing the number of pending to-dos;
+- a badge on the toolbar icon showing the work waiting on the user: pending to-dos plus
+  the merge requests awaiting their review;
 - a popup with three read-only lists: pending to-dos, merge requests awaiting the
   user's review, and the user's own open merge requests.
 
@@ -31,7 +32,7 @@ Explicitly out of scope. Each is a separate, later iteration:
 | OAuth2 with PKCE, not a Personal Access Token | No secret to copy by hand, no expiry surprise; GitLab.com allows user-owned OAuth applications, so no instance admin is needed. |
 | `read_api` scope | The extension only reads. A stolen token cannot modify anything. |
 | Vanilla ES modules, no build step | Edit a file, press Reload in `chrome://extensions`, done. No `node_modules`, no toolchain to maintain for a ~700-line personal tool. |
-| Badge counts pending to-dos only | Matches the number GitLab itself shows in its header, so the two never disagree. Counts that include open MRs are effectively never zero and stop being a signal. |
+| Badge counts pending to-dos plus requested reviews | A to-do can be dismissed while the review it announced is still undone, and an unreviewed MR blocks someone else — so the badge keeps counting it until the request is gone. `mine` stays out: one's own open MRs are never all closed, and a badge that never reaches zero stops being a signal. |
 | The popup never calls the GitLab API | A popup lives for a fraction of a second. Data is already in `chrome.storage.local`, so the popup renders instantly and works offline against the last snapshot. |
 | No options page | Its only contents would be sign-out and an account line. Both fit in the popup footer. Dropped as unnecessary surface. |
 | Extension ID pinned via the manifest `key` field | Chrome and Edge derive the extension ID from `key`; without it the two browsers generate different IDs, and the OAuth redirect URI would differ per browser. |
@@ -176,6 +177,8 @@ Single area: `chrome.storage.local`.
 
   ui: { activeTab: 'todos' | 'reviews' | 'mine' },
 
+  readIds: { [todoId: string]: true },  // hidden from the To-dos list and the badge
+
   backoffUntil: number        // ms since epoch; polls are skipped before this
 }
 ```
@@ -193,6 +196,12 @@ the project path and the MR number in one field with no extra request.
 `inbox` is replaced wholesale on a successful poll. On a failed poll the previous
 `todos` / `reviews` / `mine` and `fetchedAt` are preserved and only `error` is set,
 so the popup keeps showing the last good snapshot with a staleness notice.
+
+`readIds` covers to-dos only. The other two lists mirror live GitLab state — an open
+merge request is still open whether or not it has been looked at — so there is nothing
+there for a read mark to mean. Every successful poll prunes the map to the to-dos the new
+snapshot still holds, so it cannot grow without bound and a reused id cannot hide a to-do
+the user never saw. It is cleared on sign-in and sign-out with the rest of the session.
 
 ## 7. Polling
 
@@ -224,12 +233,16 @@ minute leaves the limit irrelevant.
 
 ## 8. Badge
 
-Driven only by `inbox.todos.length` and `inbox.error`:
+Driven by the pending to-dos that are not marked read, plus `inbox.reviews`, and by
+`inbox.error`. A to-do pointing at an MR that is already in the review list is not
+counted a second time — GitLab raises a `review_requested` to-do for the same MR, and
+one piece of work must show as one. The comparison ignores the URL fragment, so a to-do
+raised by a comment collapses into the MR it was left on.
 
 | State | Text | Background |
 |---|---|---|
 | Not signed in | empty | — |
-| 0 pending to-dos | empty | — |
+| Nothing waiting | empty | — |
 | 1-99 | the number | `#E24329` |
 | more than 99 | `99+` | `#E24329` |
 | `error.kind === 'auth'` | `!` | `#DB3B21` |
@@ -239,14 +252,25 @@ because it is still the best information available.
 
 ## 9. Popup
 
-Fixed 380 px wide, content capped at 560 px tall with the list scrolling.
+Fixed 608 px wide, content capped at 560 px tall with the list scrolling.
 
 - Header: avatar, `@username`, a refresh button.
-- Three tabs with per-tab counts. The active tab is persisted in `ui.activeTab`, so
-  reopening the popup lands where the user left it.
-- A row is: title (one line, ellipsised), `reference` or project path, author, and a
-  relative timestamp ("20 min ago"). Draft MRs carry a Draft chip.
-- Clicking a row calls `chrome.tabs.create({ url })` and closes the popup.
+- Three tabs with per-tab counts; the To-dos count excludes the to-dos marked read. The
+  active tab is persisted in `ui.activeTab`, so reopening the popup lands where the user
+  left it.
+- A row leads with what it asks of the user: for a to-do the action ("Review requested"),
+  for a merge request its title, one line and ellipsised. Muted underneath: the project
+  path or `reference`, the author, and a relative timestamp ("20 min ago"). A to-do's own
+  subject is in the row's tooltip, since the action has the lead line. Draft MRs carry a
+  Draft chip.
+- Clicking a row calls `chrome.tabs.create({ url })` and closes the popup. On the To-dos
+  tab it also marks the to-do read, and an eye button at the right of the row marks it read
+  without opening it; the other two tabs carry no such button.
+- That message is the one the popup awaits before closing itself. Every other message it
+  sends is fire-and-forget, but a message still in flight when the popup's context is
+  destroyed never reaches the worker, and the mark would be lost.
+- Read is local and one-way: `read_api` cannot resolve a to-do in GitLab (§2), so the mark
+  only hides the to-do here, for as long as it stays in the snapshot.
 - Footer: "updated N s ago" and a sign-out link.
 
 States that must be handled explicitly, each with its own rendering:
@@ -311,7 +335,8 @@ trademark in a personal tool.
 4. `gitlab.js` response mapping — raw fixture JSON to the `Todo` / `Mr` shapes,
    including a to-do whose `target` is null;
 5. badge text formatting — 0 to empty, 7 to `7`, 150 to `99+`;
-6. relative-time formatting boundaries.
+6. relative-time formatting boundaries;
+7. the badge count over a snapshot — read marks, and an MR that a to-do also points at.
 
 Node 18+ exposes `crypto.subtle` and `fetch` as globals, so these modules run
 unmodified outside the browser. That is the reason for the `chrome.*` ban in

@@ -1,7 +1,5 @@
 import { humaniseAction, relativeTime } from '../format.js';
-import { onChanged, read, write } from '../store.js';
-
-const TABS = ['todos', 'reviews', 'mine'];
+import { LISTS as TABS, onChanged, read, unread, write } from '../store.js';
 
 const EMPTY_MESSAGES = {
   todos: 'No pending to-dos.',
@@ -44,28 +42,56 @@ function renderHeader(me) {
   byId('username').textContent = me?.username ? `@${me.username}` : '';
 }
 
-function renderTabs(inbox, activeTab) {
+function renderTabs(inbox, readIds, activeTab) {
   for (const tab of TABS) {
     document
       .querySelector(`.tab[data-tab="${tab}"]`)
       .setAttribute('aria-selected', String(tab === activeTab));
     document.querySelector(`.count[data-count="${tab}"]`).textContent = inbox
-      ? String(inbox[tab]?.length ?? 0)
+      ? String(visibleItems(inbox, readIds, tab).length)
       : '';
   }
+}
+
+/**
+ * The rows a tab shows. Only to-dos can be marked read: the other two lists mirror live
+ * GitLab state, where hiding a row would just lose the user a merge request that is still
+ * open and still theirs.
+ */
+function visibleItems(inbox, readIds, tab) {
+  return tab === 'todos' ? unread(inbox.todos, readIds) : (inbox[tab] ?? []);
+}
+
+/**
+ * The row's lead line. A to-do leads with what it asks of the user — "Review requested" — and
+ * keeps its subject in the tooltip; a to-do with no action name has nothing else to lead with,
+ * so it falls back to the subject. A merge request has no action and leads with its title.
+ */
+function titleFor(item, tab) {
+  if (tab !== 'todos') return item.title;
+  return humaniseAction(item.actionName) || item.title;
 }
 
 function metaFor(item, tab) {
   const parts =
     tab === 'todos'
-      ? [
-          humaniseAction(item.actionName),
-          item.project,
-          item.authorName,
-          relativeTime(item.createdAt),
-        ]
+      ? [item.project, item.authorName, relativeTime(item.createdAt)]
       : [item.reference, item.authorName, relativeTime(item.updatedAt)];
   return parts.filter(Boolean).join(' · ');
+}
+
+/**
+ * Hides a to-do for good. The worker owns the write, as it does every other mutation
+ * (design §10), and the local copy is marked too so the row leaves on the click rather than a
+ * message round trip later.
+ *
+ * Unlike every other message the popup sends, this one is awaited: a caller that opens a link
+ * calls `window.close()` next, and a message still in flight when this context is destroyed
+ * never reaches the worker at all.
+ */
+async function markRead(item) {
+  state.readIds[item.id] = true;
+  await chrome.runtime.sendMessage({ type: 'markRead', id: item.id }).catch(() => {});
 }
 
 /**
@@ -74,29 +100,43 @@ function metaFor(item, tab) {
  */
 function buildRow(item, tab) {
   const node = rowTemplate.content.firstElementChild.cloneNode(true);
-  const button = node.querySelector('.row');
+  const open = node.querySelector('.row-open');
 
-  const avatar = button.querySelector('.row-avatar');
+  const avatar = open.querySelector('.row-avatar');
   setAvatar(avatar, item.authorAvatar ?? '');
   avatar.alt = item.authorName ?? '';
 
-  button.querySelector('.chip').hidden = item.draft !== true;
-  button.querySelector('.row-title-text').textContent = item.title;
-  button.querySelector('.row-meta').textContent = metaFor(item, tab);
-  button.title = item.title;
+  open.querySelector('.chip').hidden = item.draft !== true;
+  open.querySelector('.row-title-text').textContent = titleFor(item, tab);
+  open.querySelector('.row-meta').textContent = metaFor(item, tab);
+  // On a to-do the subject is not on the row at all, so the tooltip is where it lives.
+  open.title = item.title;
 
-  button.addEventListener('click', () => {
+  open.addEventListener('click', async () => {
     // A to-do or MR whose target was deleted has no URL; the row must not look clickable by
-    // closing the popup with nothing to show for it.
+    // closing the popup with nothing to show for it, and nothing has been read either.
     if (!item.url) return;
+    if (tab === 'todos') await markRead(item);
     chrome.tabs.create({ url: item.url });
     window.close();
   });
 
+  const readButton = node.querySelector('.row-read');
+  if (tab === 'todos') {
+    readButton.addEventListener('click', () => {
+      markRead(item);
+      render();
+    });
+  } else {
+    // Removed rather than hidden: `.row-read` sets its own `display`, which would beat the
+    // browser's `[hidden] { display: none }` and leave a dead button on the row.
+    readButton.remove();
+  }
+
   return node;
 }
 
-function renderList(inbox, activeTab) {
+function renderList(inbox, readIds, activeTab) {
   const warning = byId('warning');
   const empty = byId('empty');
   const truncated = byId('truncated');
@@ -124,7 +164,7 @@ function renderList(inbox, activeTab) {
     return;
   }
 
-  const items = inbox[activeTab] ?? [];
+  const items = visibleItems(inbox, readIds, activeTab);
   byId('list').replaceChildren(...items.map((item) => buildRow(item, activeTab)));
 
   if (items.length === 0) {
@@ -141,7 +181,7 @@ function renderFooter(inbox) {
 }
 
 function render() {
-  const { auth, me, inbox, ui } = state;
+  const { auth, me, inbox, readIds, ui } = state;
   // A dead session renders as the sign-in screen even though `auth` was already cleared
   // (design §9, state 5).
   const signedIn = auth !== null && inbox?.error?.kind !== 'auth';
@@ -156,8 +196,8 @@ function render() {
 
   const activeTab = TABS.includes(ui?.activeTab) ? ui.activeTab : 'todos';
   renderHeader(me);
-  renderTabs(inbox, activeTab);
-  renderList(inbox, activeTab);
+  renderTabs(inbox, readIds, activeTab);
+  renderList(inbox, readIds, activeTab);
   renderFooter(inbox);
 }
 

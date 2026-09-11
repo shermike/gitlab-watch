@@ -53,8 +53,8 @@
     </section>
 
     <template id="row-template">
-      <li>
-        <button type="button" class="row">
+      <li class="row">
+        <button type="button" class="row-open">
           <img class="row-avatar" alt="" width="20" height="20" />
           <span class="row-body">
             <span class="row-title">
@@ -63,6 +63,24 @@
             </span>
             <span class="row-meta"></span>
           </span>
+        </button>
+        <button
+          type="button"
+          class="row-read"
+          title="Mark as read"
+          aria-label="Mark as read"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+            <path
+              d="M1.8 12S5.9 5.2 12 5.2 22.2 12 22.2 12 18.1 18.8 12 18.8 1.8 12 1.8 12Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7" />
+          </svg>
         </button>
       </li>
     </template>

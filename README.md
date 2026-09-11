@@ -1,8 +1,9 @@
 # GitLab Inbox
 
 A Chrome/Edge extension that keeps one GitLab.com account's review workload on the toolbar:
-a badge with the number of pending to-dos, and a popup with three read-only lists — pending
-to-dos, merge requests awaiting your review, and your own open merge requests.
+a badge counting the pending to-dos and the merge requests awaiting your review, and a popup
+with three read-only lists — pending to-dos, merge requests awaiting your review, and your own
+open merge requests.
 
 Design: [`docs/2026-09-09-gitlab-inbox-design.md`](docs/2026-09-09-gitlab-inbox-design.md).
 
@@ -96,6 +97,7 @@ using the PNGs.
    |  - reads the snapshot, renders tabs  |
    |  - asks the worker to refresh        |
    |  - opens web_url in a new tab        |
+   |  - marks a to-do read to hide it     |
    +--------------------------------------+
 ```
 
@@ -140,7 +142,10 @@ Sign-in
 
 Lists
 
-- [ ] Chrome  [ ] Edge — The to-do count on the badge equals the number in GitLab's own header.
+- [ ] Chrome  [ ] Edge — The badge equals the pending to-dos plus the merge requests awaiting
+      your review, counting an MR once even when it also has a `review_requested` to-do.
+- [ ] Chrome  [ ] Edge — Finishing a review in GitLab — so the MR no longer lists you as a
+      reviewer — drops the badge by one within about a minute.
 - [ ] Chrome  [ ] Edge — Badge colours: white text on `#E24329` for a normal count, and `!` on
       `#DB3B21` for the auth-error state.
 - [ ] Chrome  [ ] Edge — The To-dos tab matches <https://gitlab.com/dashboard/todos>, item for
@@ -153,6 +158,14 @@ Lists
       renders readable text and opens the right page.
 - [ ] Chrome  [ ] Edge — A draft MR carries a Draft chip and its title has no "Draft:" prefix.
 - [ ] Chrome  [ ] Edge — Clicking a row opens the target in a new tab and closes the popup.
+- [ ] Chrome  [ ] Edge — On the To-dos tab that click also marks the to-do read: reopening the
+      popup shows it gone from the list, from the tab count and from the badge.
+- [ ] Chrome  [ ] Edge — The eye button on a To-dos row removes it and drops the tab count and
+      the badge by one, without opening anything.
+- [ ] Chrome  [ ] Edge — Review and Mine rows carry no eye button, and clicking one opens it
+      without hiding anything.
+- [ ] Chrome  [ ] Edge — A to-do marked read stays hidden across the next poll (leave the popup
+      open for a minute) and after a browser restart.
 - [ ] Chrome  [ ] Edge — Truncation: set `TODOS_PER_PAGE` to `1` in `src/config.js`, reload the
       extension, confirm the "Showing the first N" line appears on the To-dos tab, then restore
       the original value.
@@ -192,7 +205,8 @@ card → "service worker").
   ```
 
 - [ ] Chrome  [ ] Edge — Signing in again from that state restores the count.
-- [ ] Chrome  [ ] Edge — Sign-out clears `auth`, `me` and `inbox`, and removes the badge.
+- [ ] Chrome  [ ] Edge — Sign-out clears `auth`, `me`, `inbox` and `readIds`, and removes the
+      badge; signing back in shows every previously hidden to-do again.
 - [ ] Chrome  [ ] Edge — Rate-limit backoff: setting a future `backoffUntil` makes the next
       alarm skip its poll (no request fires until that time passes):
 
@@ -210,7 +224,7 @@ Polling
 
 Layout
 
-- [ ] Chrome  [ ] Edge — The popup is 380 px wide and never taller than 560 px; a long list
+- [ ] Chrome  [ ] Edge — The popup is 608 px wide and never taller than 560 px; a long list
       scrolls inside it.
 - [ ] Chrome  [ ] Edge — A very long MR title ellipsises on one line instead of wrapping or
       widening the popup.

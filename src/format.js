@@ -24,7 +24,12 @@ export function relativeTime(timestamp, now = Date.now()) {
   return `${Math.floor(elapsed / DAY_MS)} d ago`;
 }
 
-/** A to-do's `action_name` as prose: "review_requested" reads as "review requested". */
+/**
+ * A to-do's `action_name` as a sentence-case label: "review_requested" reads as
+ * "Review requested". It heads the row in the popup, which is why it is capitalised here
+ * rather than by a CSS transform that would also shout an all-caps project name.
+ */
 export function humaniseAction(actionName) {
-  return (actionName ?? '').replace(/_/g, ' ');
+  const words = (actionName ?? '').replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
