@@ -51,8 +51,17 @@ async function exchange(grant) {
   }
 
   if (!response.ok) {
+    // The status alone cannot tell a rejected grant from a client the endpoint refuses to
+    // authenticate; only the OAuth error code in the body distinguishes them, so it is
+    // carried into the message (RFC 6749 §5.2).
+    let code = '';
+    try {
+      code = (await response.json()).error ?? '';
+    } catch {
+      // A non-JSON body — a proxy's error page — leaves the status as the only detail.
+    }
     // 400 invalid_grant on a refresh, or a rejected authorization code: unrecoverable.
-    throw new AuthError(`Token endpoint responded ${response.status}`, {
+    throw new AuthError(`Token endpoint responded ${response.status}${code ? ` (${code})` : ''}`, {
       terminal: response.status === 400 || response.status === 401,
     });
   }
