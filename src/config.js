@@ -5,7 +5,7 @@ export const GITLAB_HOST = 'https://gitlab.com';
 // The Application ID of a user-owned OAuth application. Public by design: the application is
 // non-confidential, so there is no client secret and this value is not a credential
 // (design §5.1).
-export const CLIENT_ID = 'PASTE_YOUR_APPLICATION_ID_HERE';
+export const CLIENT_ID = 'e11265a7d02cffbea26e996eb86d00215bb9ab6977712cb450fb50b4e7bf32f0';
 
 // The extension only reads; a stolen token cannot modify anything (design §3).
 export const SCOPE = 'read_api';

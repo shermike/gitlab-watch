@@ -24,9 +24,9 @@ Loaded unpacked; not published to any store.
    - **Redirect URI:** `https://bffggehapkcgnaflmebplikopjpocjop.chromiumapp.org/`
    - **Confidential:** unchecked — a browser extension cannot keep a secret
    - **Scopes:** `read_api` only
-4. Copy the Application ID into `CLIENT_ID` in `src/config.js`. The placeholder value committed
-   there is deliberate, not an oversight — it is the one value in this repository only the
-   operator can supply, and this step is where it gets filled in.
+4. Copy the Application ID into `CLIENT_ID` in `src/config.js`. The value committed there
+   belongs to the application registered above; register your own and replace it. It is not a
+   credential — the application is non-confidential, so it has no secret.
 5. Reload the extension, open the popup, sign in.
 6. Repeat steps 1-2 in Edge (`edge://extensions`). The same Application ID and redirect URI
    apply, because the `key` field pins the same ID in both browsers.
