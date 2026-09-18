@@ -2,6 +2,7 @@
   "name": "gitlab-inbox",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Pending GitLab to-dos and merge requests on your toolbar.",
   "scripts": {
