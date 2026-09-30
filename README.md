@@ -149,8 +149,9 @@ Lists
       reviewer — drops the badge by one within about a minute.
 - [ ] Chrome  [ ] Edge — Badge colours: white text on `#E24329` for a normal count, and `!` on
       `#DB3B21` for the auth-error state.
-- [ ] Chrome  [ ] Edge — The Notifications tab matches <https://gitlab.com/dashboard/todos>, item for
-      item.
+- [ ] Chrome  [ ] Edge — The pending to-dos on the Notifications tab match
+      <https://gitlab.com/dashboard/todos>, item for item; derived events have no counterpart
+      there.
 - [ ] Chrome  [ ] Edge — The Review tab matches GitLab's "Merge requests ▸ Review requests",
       newest update first.
 - [ ] Chrome  [ ] Edge — The Mine tab matches the open merge requests you authored, newest
@@ -159,17 +160,17 @@ Lists
       renders readable text and opens the right page.
 - [ ] Chrome  [ ] Edge — A draft MR carries a Draft chip and its title has no "Draft:" prefix.
 - [ ] Chrome  [ ] Edge — Clicking a row opens the target in a new tab and closes the popup.
-- [ ] Chrome  [ ] Edge — On the Notifications tab that click also marks the to-do read: reopening the
-      popup shows it gone from the list, from the tab count and from the badge.
-- [ ] Chrome  [ ] Edge — The eye button on a Notifications row removes it and drops the tab count and
-      the badge by one, without opening anything.
+- [ ] Chrome  [ ] Edge — On the Notifications tab that click also marks the to-do read: reopening
+      the popup shows it gone from the list, from the tab count and from the badge.
+- [ ] Chrome  [ ] Edge — The eye button on a Notifications row removes it and drops the tab count
+      and the badge by one, without opening anything.
 - [ ] Chrome  [ ] Edge — Review and Mine rows carry no eye button, and clicking one opens it
       without hiding anything.
 - [ ] Chrome  [ ] Edge — A to-do marked read stays hidden across the next poll (leave the popup
       open for a minute) and after a browser restart.
 - [ ] Chrome  [ ] Edge — Truncation: set `TODOS_PER_PAGE` to `1` in `src/config.js`, reload the
-      extension, confirm the "Showing the first N" line appears on the Notifications tab, then restore
-      the original value.
+      extension, confirm the "Showing the first N" line appears on the Notifications tab, then
+      restore the original value.
 
 Notifications
 
