@@ -6,11 +6,14 @@ import {
   REPLY_CANDIDATE,
   advanceEntry,
   classifyNote,
+  mergeEvents,
   newNotes,
+  noteEvent,
+  outcomeEvent,
   planWatch,
   replyNoteIds,
 } from '../src/events.js';
-import { mapDiscussion, mapNote } from '../src/gitlab.js';
+import { mapDiscussion, mapNote, mapOutcome } from '../src/gitlab.js';
 
 const fixture = (name) =>
   readFile(new URL(`./fixtures/${name}.json`, import.meta.url), 'utf8').then(JSON.parse);
@@ -162,4 +165,111 @@ test('advanceEntry moves to the MR\'s state and the newest note fetched', async 
 test('advanceEntry never moves lastNoteId backwards', () => {
   const next = advanceEntry(entry({ lastNoteId: 1010 }), mr(), []);
   assert.equal(next.lastNoteId, 1010);
+});
+
+test('noteEvent anchors to the note and keeps a whitespace-collapsed excerpt', async () => {
+  const [, , reply] = await notesFixture('reviewer_notes');
+  const reviewed = mr({ id: 901, iid: 8, url: 'https://gitlab.com/group/project/-/merge_requests/8', reference: 'group/project!8', title: 'Split the poller in two' });
+  assert.deepEqual(noteEvent('reply', reply, reviewed), {
+    id: 'note:2005',
+    kind: 'reply',
+    mrTitle: 'Split the poller in two',
+    mrReference: 'group/project!8',
+    url: 'https://gitlab.com/group/project/-/merge_requests/8#note_2005',
+    actorName: 'Grace Hopper',
+    actorAvatar: 'https://gitlab.com/uploads/grace.png',
+    excerpt: 'Good point, changing it.',
+    createdAt: T(11, 5),
+  });
+});
+
+test('noteEvent has no excerpt for a system note and caps a long comment', () => {
+  const system = mapNote({ id: 1, body: 'approved this merge request', system: true, author: { id: 2 } });
+  assert.equal(noteEvent('approved', system, mr()).excerpt, '');
+  const long = mapNote({ id: 2, body: 'x'.repeat(500), author: { id: 1 } });
+  assert.equal(noteEvent('comment', long, mr()).excerpt.length, 200);
+});
+
+test('noteEvent leaves the url empty when the MR has none', () => {
+  const note = mapNote({ id: 3, body: 'hi', author: { id: 1 } });
+  assert.equal(noteEvent('comment', note, mr({ url: '' })).url, '');
+});
+
+test('outcomeEvent reports a merge by someone else', async () => {
+  const outcome = mapOutcome(await fixture('notes/merge_request_merged'));
+  assert.deepEqual(outcomeEvent(outcome, ME, T(13, 0)), {
+    id: 'merged:900',
+    kind: 'merged',
+    mrTitle: 'Add rate limiting to the poller',
+    mrReference: 'group/project!7',
+    url: 'https://gitlab.com/group/project/-/merge_requests/7',
+    actorName: 'Grace Hopper',
+    actorAvatar: 'https://gitlab.com/uploads/grace.png',
+    excerpt: '',
+    createdAt: T(12, 0),
+  });
+});
+
+test('outcomeEvent reports a close by someone else', async () => {
+  const outcome = mapOutcome(await fixture('notes/merge_request_closed'));
+  const event = outcomeEvent(outcome, ME, T(13, 0));
+  assert.equal(event.id, 'closed:902');
+  assert.equal(event.kind, 'closed');
+  assert.equal(event.actorName, 'Ada Lovelace');
+});
+
+test('outcomeEvent is silent for the user\'s own merge or close', () => {
+  const merged = mapOutcome({ id: 5, state: 'merged', merge_user: { id: 42 } });
+  const closed = mapOutcome({ id: 6, state: 'closed', closed_by: { id: 42 } });
+  assert.equal(outcomeEvent(merged, ME, T(13, 0)), null);
+  assert.equal(outcomeEvent(closed, ME, T(13, 0)), null);
+});
+
+test('outcomeEvent is silent for an MR that is still open', () => {
+  assert.equal(outcomeEvent(mapOutcome({ id: 5, state: 'opened' }), ME, T(13, 0)), null);
+});
+
+test('outcomeEvent still reports a merge when GitLab omits who did it', () => {
+  const event = outcomeEvent(mapOutcome({ id: 5, state: 'merged' }), ME, T(13, 0));
+  assert.equal(event.kind, 'merged');
+  assert.equal(event.actorName, '');
+  assert.equal(event.actorAvatar, '');
+  assert.equal(event.createdAt, T(13, 0));
+});
+
+const stored = (id, createdAt) => ({ id, kind: 'comment', url: '', createdAt });
+
+test('mergeEvents sorts newest first and drops a duplicate id', () => {
+  const merged = mergeEvents([stored('note:1', T(9, 0))], [stored('note:2', T(10, 0)), stored('note:1', T(9, 0))], [], T(12, 0));
+  assert.deepEqual(
+    merged.map((event) => event.id),
+    ['note:2', 'note:1'],
+  );
+});
+
+test('mergeEvents keeps at most 100 events', () => {
+  const many = Array.from({ length: 120 }, (_, i) => stored(`note:${i}`, T(10, 0) + i));
+  const merged = mergeEvents([], many, [], T(12, 0));
+  assert.equal(merged.length, 100);
+  assert.equal(merged[0].id, 'note:119');
+});
+
+test('mergeEvents drops events older than 14 days', () => {
+  const now = T(12, 0);
+  const merged = mergeEvents(
+    [stored('note:old', now - 14 * 86_400_000), stored('note:fresh', now - 13 * 86_400_000)],
+    [],
+    [],
+    now,
+  );
+  assert.deepEqual(
+    merged.map((event) => event.id),
+    ['note:fresh'],
+  );
+});
+
+test('mergeEvents drops an event a to-do already covers', () => {
+  const todos = [{ id: 1, url: 'https://gitlab.com/group/project/-/merge_requests/7#note_1010' }];
+  const merged = mergeEvents([], [stored('note:1010', T(10, 0))], todos, T(12, 0));
+  assert.deepEqual(merged, []);
 });
