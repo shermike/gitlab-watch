@@ -171,7 +171,8 @@ async function detectEvents(me, snapshot) {
  * Fetches all three lists and writes one snapshot. The three run concurrently and the
  * snapshot is written only if all three succeed, so the popup never sees a half-updated
  * state (design §7). Event detection runs after the snapshot is written, so the lists are never
- * held back by it (notifications design §4.2).
+ * held back by it (notifications design §4.2). The badge is redrawn as soon as the snapshot is
+ * written and again once detection has finished.
  *
  * `respectBackoff` is false only for a user-initiated refresh: design §7 pauses *alarms*
  * after a 429, and a button press is throttled separately.
@@ -210,6 +211,7 @@ async function poll({ respectBackoff = true } = {}) {
       error: null,
     };
     await write({ inbox: snapshot, backoffUntil: 0 });
+    await applyBadge();
     await detectEvents(me, snapshot);
     // Read here rather than alongside `auth` at the top: the requests above take as long as
     // they take, and a `markRead` that lands while they are in flight must not be pruned away
