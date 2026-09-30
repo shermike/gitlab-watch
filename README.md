@@ -1,11 +1,12 @@
 # GitLab Inbox
 
 A Chrome/Edge extension that keeps one GitLab.com account's review workload on the toolbar:
-a badge counting the pending to-dos and the merge requests awaiting your review, and a popup
-with three read-only lists — pending to-dos, merge requests awaiting your review, and your own
-open merge requests.
+a badge counting unread notifications and the merge requests awaiting your review, and a popup
+with three read-only lists — notifications (pending to-dos plus events on your merge requests
+and the ones you review), merge requests awaiting your review, and your own open merge requests.
 
-Design: [`docs/2026-09-09-gitlab-inbox-design.md`](docs/2026-09-09-gitlab-inbox-design.md).
+Design: [`docs/2026-09-09-gitlab-inbox-design.md`](docs/2026-09-09-gitlab-inbox-design.md),
+extended by [`docs/2026-09-30-notifications-design.md`](docs/2026-09-30-notifications-design.md).
 
 Loaded unpacked; not published to any store.
 
@@ -148,7 +149,7 @@ Lists
       reviewer — drops the badge by one within about a minute.
 - [ ] Chrome  [ ] Edge — Badge colours: white text on `#E24329` for a normal count, and `!` on
       `#DB3B21` for the auth-error state.
-- [ ] Chrome  [ ] Edge — The To-dos tab matches <https://gitlab.com/dashboard/todos>, item for
+- [ ] Chrome  [ ] Edge — The Notifications tab matches <https://gitlab.com/dashboard/todos>, item for
       item.
 - [ ] Chrome  [ ] Edge — The Review tab matches GitLab's "Merge requests ▸ Review requests",
       newest update first.
@@ -158,17 +159,45 @@ Lists
       renders readable text and opens the right page.
 - [ ] Chrome  [ ] Edge — A draft MR carries a Draft chip and its title has no "Draft:" prefix.
 - [ ] Chrome  [ ] Edge — Clicking a row opens the target in a new tab and closes the popup.
-- [ ] Chrome  [ ] Edge — On the To-dos tab that click also marks the to-do read: reopening the
+- [ ] Chrome  [ ] Edge — On the Notifications tab that click also marks the to-do read: reopening the
       popup shows it gone from the list, from the tab count and from the badge.
-- [ ] Chrome  [ ] Edge — The eye button on a To-dos row removes it and drops the tab count and
+- [ ] Chrome  [ ] Edge — The eye button on a Notifications row removes it and drops the tab count and
       the badge by one, without opening anything.
 - [ ] Chrome  [ ] Edge — Review and Mine rows carry no eye button, and clicking one opens it
       without hiding anything.
 - [ ] Chrome  [ ] Edge — A to-do marked read stays hidden across the next poll (leave the popup
       open for a minute) and after a browser restart.
 - [ ] Chrome  [ ] Edge — Truncation: set `TODOS_PER_PAGE` to `1` in `src/config.js`, reload the
-      extension, confirm the "Showing the first N" line appears on the To-dos tab, then restore
+      extension, confirm the "Showing the first N" line appears on the Notifications tab, then restore
       the original value.
+
+Notifications
+
+Use a throwaway merge request of your own and one you are a reviewer on; a colleague or a
+second account performs the actions. `node scripts/inspect-mr.mjs <project> <iid>` shows what
+GitLab recorded when a row does not appear.
+
+- [ ] Chrome  [ ] Edge — Upgrading from the previous version opens the popup on Notifications,
+      and the first poll adds no events for comments that already existed.
+- [ ] Chrome  [ ] Edge — A comment by someone else on your MR appears as "New comment" within
+      about a minute; its tooltip shows the MR title and the comment.
+- [ ] Chrome  [ ] Edge — Your own comment on your MR raises nothing.
+- [ ] Chrome  [ ] Edge — A comment that `@mentions` you shows once, as the to-do, not also as
+      an event.
+- [ ] Chrome  [ ] Edge — Approve, revoke approval and "Request changes" on your MR each appear
+      with their own label.
+- [ ] Chrome  [ ] Edge — A reply in a thread you started on a reviewed MR appears as "Reply in
+      your thread"; a comment in a thread you are not in does not.
+- [ ] Chrome  [ ] Edge — A push to a reviewed MR appears as "New commits".
+- [ ] Chrome  [ ] Edge — Your MR merged by someone else appears as "Merged"; merged by you,
+      nothing appears.
+- [ ] Chrome  [ ] Edge — Your MR closed by someone else appears as "Closed".
+- [ ] Chrome  [ ] Edge — An event on an MR in the Review list does not raise the badge a second
+      time.
+- [ ] Chrome  [ ] Edge — The eye button and a click each hide an event from the tab, the count
+      and the badge, and it stays hidden after the next poll and a browser restart.
+- [ ] Chrome  [ ] Edge — Signing out while a poll is in flight (sign out right after pressing
+      Refresh) leaves `watch` and `events` empty in storage.
 
 State and persistence
 
