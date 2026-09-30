@@ -92,9 +92,7 @@ function metaFor(item) {
 /** An event's tooltip carries its MR title and, for a comment, the excerpt (notifications design §6). */
 function tooltipFor(item) {
   if (item.source !== 'event') return item.title;
-  return item.excerpt ? `${item.mrTitle}
-
-${item.excerpt}` : item.mrTitle;
+  return item.excerpt ? `${item.mrTitle}\n\n${item.excerpt}` : item.mrTitle;
 }
 
 /**
