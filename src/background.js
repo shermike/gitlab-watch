@@ -17,7 +17,8 @@ import {
   userUrl,
 } from './gitlab.js';
 import { badgeText } from './format.js';
-import { badgeCount, read, write } from './store.js';
+import { collectEvents, mergeEvents } from './events.js';
+import { badgeCount, pruneReadIds, read, write } from './store.js';
 
 const BADGE_COLOR = '#E24329';
 const BADGE_ERROR_COLOR = '#DB3B21';
@@ -32,6 +33,11 @@ const ERROR_MESSAGES = {
 // `ERROR_MESSAGES.network` promises a previous state that does not exist yet on the very
 // first poll — a network blip right after sign-in must not read as a confident all-clear.
 const NETWORK_ERROR_FIRST_RUN = 'GitLab is unreachable. Nothing has been fetched yet.';
+
+// Everything a session accumulates besides its tokens. Written on sign-in and sign-out, so one
+// session's snapshot, read marks, error, watch state and events never leak into the next
+// (design §6, notifications design §5).
+const EMPTY_SESSION = { inbox: null, readIds: {}, backoffUntil: 0, watch: {}, events: [] };
 
 /**
  * One authenticated GET with the single retry design §10 allows: on 401, refresh once and
@@ -108,12 +114,12 @@ async function recordFailure(error) {
 }
 
 /**
- * The badge counts unread to-dos plus the merge requests awaiting the user's review
- * (design §3, §8). A network or rate-limit error leaves the last count standing: it is still
+ * The badge counts the Notifications feed plus the merge requests awaiting the user's review
+ * (design §8, notifications design §7). A network or rate-limit error leaves the last count standing: it is still
  * the best information available.
  */
 async function applyBadge() {
-  const { auth, inbox, readIds } = await read('auth', 'inbox', 'readIds');
+  const { auth, inbox, readIds, events } = await read('auth', 'inbox', 'readIds', 'events');
   if (inbox?.error?.kind === 'auth') {
     await setBadge('!', BADGE_ERROR_COLOR);
     return;
@@ -122,7 +128,7 @@ async function applyBadge() {
     await setBadge('', BADGE_COLOR);
     return;
   }
-  await setBadge(badgeText(badgeCount(inbox, readIds)), BADGE_COLOR);
+  await setBadge(badgeText(badgeCount(inbox, readIds, events)), BADGE_COLOR);
 }
 
 async function setBadge(text, color) {
@@ -137,23 +143,35 @@ async function setBadge(text, color) {
   }
 }
 
+// Failures of these kinds are the session's, not one merge request's, and are handled as a
+// failed poll; any other detection failure is logged and retried by the next poll
+// (notifications design §4.4).
+const FATAL_DETECTION_KINDS = ['auth', 'ratelimit'];
+
 /**
- * Drops every read mark whose to-do has left the snapshot — done in GitLab, or its target
- * deleted. Without it the map would grow for the life of the profile, and GitLab reusing an id
- * would hide a fresh to-do the user has never seen.
+ * Derives events from a freshly written snapshot and stores them with the next watch state
+ * (notifications design §4.2). Writes nothing once the session is gone, so a sign-out during the
+ * requests cannot resurrect what it cleared (§4.4).
  */
-function pruneReadIds(readIds, snapshot) {
-  const kept = {};
-  for (const todo of snapshot.todos) {
-    if (readIds[todo.id]) kept[todo.id] = true;
-  }
-  return kept;
+async function detectEvents(me, snapshot) {
+  const { watch, events } = await read('watch', 'events');
+  const result = await collectEvents({ watch, snapshot, me, get: authorizedGet, now: Date.now() });
+  const { auth } = await read('auth');
+  if (!auth) return;
+  await write({
+    watch: result.watch,
+    events: mergeEvents(events, result.added, snapshot.todos, Date.now()),
+  });
+  for (const failure of result.failures) console.error('event detection failed', failure);
+  const fatal = result.failures.filter((failure) => FATAL_DETECTION_KINDS.includes(errorKind(failure)));
+  if (fatal.length > 0) throw mostSevere(fatal);
 }
 
 /**
  * Fetches all three lists and writes one snapshot. The three run concurrently and the
  * snapshot is written only if all three succeed, so the popup never sees a half-updated
- * state (design §7).
+ * state (design §7). Event detection runs after the snapshot is written, so the lists are never
+ * held back by it (notifications design §4.2).
  *
  * `respectBackoff` is false only for a user-initiated refresh: design §7 pauses *alarms*
  * after a 429, and a button press is throttled separately.
@@ -191,11 +209,13 @@ async function poll({ respectBackoff = true } = {}) {
       fetchedAt: Date.now(),
       error: null,
     };
-    // Read here rather than alongside `auth` at the top: the three requests above take as
-    // long as they take, and a `markRead` that lands while they are in flight must not be
-    // pruned away by a snapshot that predates it.
-    const { readIds } = await read('readIds');
-    await write({ inbox: snapshot, readIds: pruneReadIds(readIds, snapshot), backoffUntil: 0 });
+    await write({ inbox: snapshot, backoffUntil: 0 });
+    await detectEvents(me, snapshot);
+    // Read here rather than alongside `auth` at the top: the requests above take as long as
+    // they take, and a `markRead` that lands while they are in flight must not be pruned away
+    // by a snapshot that predates it.
+    const { readIds, events } = await read('readIds', 'events');
+    await write({ readIds: pruneReadIds(readIds, snapshot.todos, events) });
   } catch (error) {
     await recordFailure(error);
   }
@@ -258,8 +278,7 @@ async function handleSignIn() {
     await applyBadge();
     throw error;
   }
-  // A previous session's snapshot, its read marks and its error must not leak into the new one.
-  await write({ inbox: null, readIds: {}, backoffUntil: 0 });
+  await write(EMPTY_SESSION);
   await ensureAlarm();
   await poll({ respectBackoff: false });
   return { ok: true };
@@ -286,7 +305,7 @@ async function handleMessage(message) {
       return handleSignIn();
     case 'signOut':
       await signOut();
-      await write({ inbox: null, readIds: {}, backoffUntil: 0 });
+      await write(EMPTY_SESSION);
       await applyBadge();
       return { ok: true };
     case 'refresh':
