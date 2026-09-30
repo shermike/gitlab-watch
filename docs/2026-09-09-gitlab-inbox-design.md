@@ -187,8 +187,13 @@ View shapes, mapped in `gitlab.js` so the popup never sees raw API JSON:
 
 ```js
 Todo = { id, title, url, project, actionName, authorName, authorAvatar, createdAt }
-Mr   = { id, title, url, reference, authorName, authorAvatar, updatedAt, draft }
+Mr   = { id, title, url, reference, authorName, authorAvatar, reviewerNames, reviewerAvatar,
+         updatedAt, draft }
 ```
+
+`reviewerNames` are the names of the MR's reviewers in the order GitLab lists them, and
+`reviewerAvatar` is the first reviewer's avatar, `''` when there is none. Both come from the
+list response's `reviewers` array, with no extra request.
 
 `reference` comes from the API's `references.full` (`group/project!123`), which gives
 the project path and the MR number in one field with no extra request.
@@ -260,7 +265,9 @@ Fixed 608 px wide, content capped at 560 px tall with the list scrolling.
   left it.
 - A row leads with what it asks of the user: for a to-do the action ("Review requested"),
   for a merge request its title, one line and ellipsised. Muted underneath: the project
-  path or `reference`, the author, and a relative timestamp ("20 min ago"). A to-do's own
+  path or `reference`, the author, and a relative timestamp ("20 min ago"). On the Mine tab
+  the author is always the user, so the reviewers take the author's place — comma-separated,
+  "No reviewers" when there are none — and the avatar is the first reviewer's. A to-do's own
   subject is in the row's tooltip, since the action has the lead line. Draft MRs carry a
   Draft chip.
 - Clicking a row calls `chrome.tabs.create({ url })` and closes the popup. On the To-dos

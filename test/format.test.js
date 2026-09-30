@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { badgeText, eventLabel, humaniseAction, relativeTime } from '../src/format.js';
+import {
+  badgeText,
+  eventLabel,
+  humaniseAction,
+  relativeTime,
+  reviewerLabel,
+} from '../src/format.js';
 
 test('badgeText hides a zero count and caps at 99+', () => {
   assert.equal(badgeText(0), '');
@@ -62,4 +68,14 @@ test('eventLabel names every event kind', () => {
 
 test('eventLabel falls back to a sentence-case kind', () => {
   assert.equal(eventLabel('something_new'), 'Something new');
+});
+
+test('reviewerLabel lists every reviewer in order', () => {
+  assert.equal(reviewerLabel(['Grace Hopper', 'Linus Torvalds']), 'Grace Hopper, Linus Torvalds');
+  assert.equal(reviewerLabel(['Grace Hopper']), 'Grace Hopper');
+});
+
+test('reviewerLabel says so when nobody is asked to review', () => {
+  assert.equal(reviewerLabel([]), 'No reviewers');
+  assert.equal(reviewerLabel(undefined), 'No reviewers');
 });

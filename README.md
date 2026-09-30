@@ -156,6 +156,9 @@ Lists
       newest update first.
 - [ ] Chrome  [ ] Edge — The Mine tab matches the open merge requests you authored, newest
       update first.
+- [ ] Chrome  [ ] Edge — A Mine row names its reviewers, comma-separated in GitLab's order, with
+      the first reviewer's avatar; an MR with no reviewers reads "No reviewers" and has no
+      avatar. Review rows still name the author.
 - [ ] Chrome  [ ] Edge — A to-do whose target is a commit comment (no MR, no issue) still
       renders readable text and opens the right page.
 - [ ] Chrome  [ ] Edge — A draft MR carries a Draft chip and its title has no "Draft:" prefix.
