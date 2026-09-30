@@ -1,0 +1,10 @@
+[
+  { "id": 1010, "body": "Could this retry forever?", "system": false, "author": { "id": 1, "name": "Ada Lovelace", "avatar_url": "https://gitlab.com/uploads/ada.png" }, "created_at": "2026-09-30T10:10:00.000Z" },
+  { "id": 1009, "body": "Fixed in the next push.", "system": false, "author": { "id": 42, "name": "Me", "avatar_url": "https://gitlab.com/uploads/me.png" }, "created_at": "2026-09-30T10:09:00.000Z" },
+  { "id": 1008, "body": "requested changes", "system": true, "author": { "id": 2, "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" }, "created_at": "2026-09-30T10:08:00.000Z" },
+  { "id": 1007, "body": "unapproved this merge request", "system": true, "author": { "id": 2, "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" }, "created_at": "2026-09-30T10:07:00.000Z" },
+  { "id": 1006, "body": "approved this merge request", "system": true, "author": { "id": 2, "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" }, "created_at": "2026-09-30T10:06:00.000Z" },
+  { "id": 1005, "body": "added 2 commits\n\n<ul><li>abc1234 - Retry with backoff</li><li>def5678 - Cap retries</li></ul>\n\n[Compare with previous version](https://gitlab.com/group/project/-/merge_requests/7/diffs?diff_id=1)", "system": true, "author": { "id": 42, "name": "Me", "avatar_url": "https://gitlab.com/uploads/me.png" }, "created_at": "2026-09-30T10:05:00.000Z" },
+  { "id": 1004, "body": "changed the description", "system": true, "author": { "id": 1, "name": "Ada Lovelace", "avatar_url": "https://gitlab.com/uploads/ada.png" }, "created_at": "2026-09-30T10:04:00.000Z" },
+  { "id": 1003, "body": "An early question.", "system": false, "author": { "id": 1, "name": "Ada Lovelace", "avatar_url": "https://gitlab.com/uploads/ada.png" }, "created_at": "2026-09-30T09:00:00.000Z" }
+]
