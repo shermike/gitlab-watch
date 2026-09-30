@@ -33,3 +33,20 @@ export function humaniseAction(actionName) {
   const words = (actionName ?? '').replace(/_/g, ' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
+
+// The lead line of an event row in the Notifications tab (notifications design §6).
+const EVENT_LABELS = {
+  comment: 'New comment',
+  reply: 'Reply in your thread',
+  commits: 'New commits',
+  approved: 'Approved',
+  unapproved: 'Approval revoked',
+  changes_requested: 'Changes requested',
+  merged: 'Merged',
+  closed: 'Closed',
+};
+
+/** An event kind as its row's lead line; an unknown kind reads as its sentence-case name. */
+export function eventLabel(kind) {
+  return EVENT_LABELS[kind] ?? humaniseAction(kind);
+}
