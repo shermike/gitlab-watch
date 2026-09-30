@@ -1,5 +1,8 @@
 import { humaniseAction, relativeTime } from '../format.js';
-import { LISTS as TABS, onChanged, read, unread, write } from '../store.js';
+import { onChanged, read, unread, write } from '../store.js';
+
+// The tab ids the markup carries until the Notifications tab lands (plan Task 9).
+const TABS = ['todos', 'reviews', 'mine'];
 
 const EMPTY_MESSAGES = {
   todos: 'No pending to-dos.',
