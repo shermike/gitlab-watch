@@ -159,7 +159,7 @@ function renderList(inbox, events, readIds, activeTab) {
   // No poll has ever succeeded: either there is no snapshot at all, or the one on record is
   // the placeholder `setError` fabricates before any fetch has completed, whose empty lists
   // say nothing about what GitLab actually holds. Either way, show the skeleton rather than a
-  // false "no pending to-dos" (design §9).
+  // false empty list (design §9).
   const noSnapshot = inbox === null || inbox.fetchedAt === 0;
   byId('skeleton').hidden = !noSnapshot;
   byId('list').hidden = noSnapshot;

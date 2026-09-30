@@ -27,16 +27,16 @@ const SCHEMA_DEFAULTS = {
 export const TABS = ['notifications', 'reviews', 'mine'];
 
 /**
- * The tab to show for a stored `ui.activeTab`. `'todos'` is the first tab's name before
- * notifications design §6 and is read as `'notifications'`; anything unknown falls back to it.
+ * The tab to show for a stored `ui.activeTab`. A stored `'todos'` is read as `'notifications'`
+ * (notifications design §5); anything unknown falls back to it.
  */
 export function resolveTab(tab) {
   return TABS.includes(tab) ? tab : 'notifications';
 }
 
-/** The to-dos that are not marked read; what the popup's To-dos list shows. */
-export function unread(todos, readIds) {
-  return (todos ?? []).filter((todo) => !readIds?.[todo.id]);
+/** The items not marked read in `readIds`, in their original order. */
+export function unread(items, readIds) {
+  return (items ?? []).filter((item) => !readIds?.[item.id]);
 }
 
 /**

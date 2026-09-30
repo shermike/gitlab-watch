@@ -115,8 +115,8 @@ async function recordFailure(error) {
 
 /**
  * The badge counts the Notifications feed plus the merge requests awaiting the user's review
- * (design §8, notifications design §7). A network or rate-limit error leaves the last count standing: it is still
- * the best information available.
+ * (design §8, notifications design §7). A network or rate-limit error leaves the last count
+ * standing: it is still the best information available.
  */
 async function applyBadge() {
   const { auth, inbox, readIds, events } = await read('auth', 'inbox', 'readIds', 'events');
@@ -287,13 +287,14 @@ async function handleSignIn() {
 }
 
 /**
- * Hides one to-do from the list and from the badge count. The mark is all this extension can
- * do about it: `read_api` cannot resolve a to-do in GitLab (design §2), so this is local and
- * lasts exactly as long as the to-do stays in the snapshot.
+ * Hides one to-do or event from the Notifications tab and from the badge count. The mark is
+ * all this extension can do about a to-do: `read_api` cannot resolve it in GitLab (design §2),
+ * so the mark is local and lasts exactly as long as that to-do stays in the snapshot or that
+ * event stays in `events` (notifications design §5).
  */
 async function markRead({ id }) {
   if (id === undefined || id === null) {
-    return { ok: false, message: `markRead needs a to-do id, got ${id}` };
+    return { ok: false, message: `markRead needs a to-do or event id, got ${id}` };
   }
   const { readIds } = await read('readIds');
   await write({ readIds: { ...readIds, [id]: true } });

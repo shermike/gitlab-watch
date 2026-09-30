@@ -192,13 +192,15 @@ GitLab recorded when a row does not appear.
 - [ ] Chrome  [ ] Edge — A push to a reviewed MR appears as "New commits".
 - [ ] Chrome  [ ] Edge — Your MR merged by someone else appears as "Merged"; merged by you,
       nothing appears.
-- [ ] Chrome  [ ] Edge — Your MR closed by someone else appears as "Closed".
+- [ ] Chrome  [ ] Edge — Your MR closed by someone else appears as "Closed"; closed by you,
+      nothing appears.
 - [ ] Chrome  [ ] Edge — An event on an MR in the Review list does not raise the badge a second
       time.
 - [ ] Chrome  [ ] Edge — The eye button and a click each hide an event from the tab, the count
       and the badge, and it stays hidden after the next poll and a browser restart.
-- [ ] Chrome  [ ] Edge — Signing out while a poll is in flight (sign out right after pressing
-      Refresh) leaves `watch` and `events` empty in storage.
+- [ ] Chrome  [ ] Edge — Signing out while event detection is in flight leaves `watch` and
+      `events` empty in storage: have someone comment on a watched MR, press Refresh, and sign
+      out immediately.
 
 State and persistence
 
