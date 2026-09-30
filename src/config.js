@@ -18,6 +18,24 @@ export const ALARM_PERIOD_MINUTES = 1;
 export const TODOS_PER_PAGE = 100;
 export const MRS_PER_PAGE = 50;
 
+// The newest page of a changed merge request's notes is all that is read; more than a hundred
+// notes inside one poll interval is not a realistic personal workload (notifications design §4.2).
+export const NOTES_PER_PAGE = 100;
+
+export const DISCUSSIONS_PER_PAGE = 100;
+
+// The discussion walk that finds replies stops after this many pages; notes it did not reach are
+// dropped rather than guessed at (notifications design §4.2 step 3).
+export const DISCUSSION_PAGES_MAX = 5;
+
+// `events` holds at most this many entries, and none older than the age below
+// (notifications design §5).
+export const EVENTS_MAX = 100;
+export const EVENTS_MAX_AGE_MS = 14 * 86_400_000;
+
+// Characters of a comment kept for the row tooltip (notifications design §5).
+export const EXCERPT_MAX = 200;
+
 // A token counts as stale five minutes before it expires, so a request never starts with a
 // token that could expire mid-flight (design §5.3).
 export const TOKEN_STALE_MARGIN_MS = 300_000;

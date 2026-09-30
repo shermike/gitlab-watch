@@ -1,0 +1,14 @@
+{
+  "id": 902,
+  "iid": 9,
+  "project_id": 55,
+  "state": "closed",
+  "title": "Draft: Try a websocket instead",
+  "web_url": "https://gitlab.com/group/project/-/merge_requests/9",
+  "references": { "full": "group/project!9" },
+  "merge_user": null,
+  "merged_by": null,
+  "merged_at": null,
+  "closed_by": { "id": 1, "name": "Ada Lovelace", "avatar_url": "https://gitlab.com/uploads/ada.png" },
+  "closed_at": "2026-09-30T12:30:00.000Z"
+}

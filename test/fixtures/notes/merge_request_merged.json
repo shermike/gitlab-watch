@@ -1,0 +1,14 @@
+{
+  "id": 900,
+  "iid": 7,
+  "project_id": 55,
+  "state": "merged",
+  "title": "Add rate limiting to the poller",
+  "web_url": "https://gitlab.com/group/project/-/merge_requests/7",
+  "references": { "full": "group/project!7" },
+  "merge_user": { "id": 2, "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" },
+  "merged_by": { "id": 2, "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" },
+  "merged_at": "2026-09-30T12:00:00.000Z",
+  "closed_by": null,
+  "closed_at": null
+}
