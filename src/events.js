@@ -3,7 +3,16 @@
  * function the caller passes in, so this module runs under `node --test` unchanged.
  */
 
-import { EVENTS_MAX, EVENTS_MAX_AGE_MS, EXCERPT_MAX } from './config.js';
+import { DISCUSSION_PAGES_MAX, EVENTS_MAX, EVENTS_MAX_AGE_MS, EXCERPT_MAX } from './config.js';
+import {
+  ApiError,
+  discussionsUrl,
+  mapDiscussion,
+  mapNote,
+  mapOutcome,
+  mergeRequestUrl,
+  notesUrl,
+} from './gitlab.js';
 import { coveredByTodo } from './store.js';
 
 /** A note by someone else on an MR the user reviews; a reply only if its thread holds the user. */
@@ -169,4 +178,78 @@ export function mergeEvents(existing, added, todos, now) {
     })
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, EVENTS_MAX);
+}
+
+async function walkDiscussions(get, entry) {
+  const discussions = [];
+  for (let page = 1; page <= DISCUSSION_PAGES_MAX; page += 1) {
+    const { body, nextPage } = await get(discussionsUrl(entry.projectId, entry.iid, page));
+    discussions.push(...body.map(mapDiscussion));
+    if (nextPage === '') break;
+  }
+  return discussions;
+}
+
+async function inspectChanged(get, entry, mr, me) {
+  const notes = (await get(notesUrl(entry.projectId, entry.iid))).body.map(mapNote);
+  const events = [];
+  const candidates = new Map();
+  for (const note of newNotes(notes, entry)) {
+    const kind = classifyNote(note, entry, me);
+    if (kind === REPLY_CANDIDATE) candidates.set(note.id, note);
+    else if (kind) events.push(noteEvent(kind, note, mr));
+  }
+  if (candidates.size > 0) {
+    const discussions = await walkDiscussions(get, entry);
+    for (const id of replyNoteIds(discussions, new Set(candidates.keys()), me)) {
+      events.push(noteEvent('reply', candidates.get(id), mr));
+    }
+  }
+  return { entry: advanceEntry(entry, mr, notes), events };
+}
+
+async function inspectDisappeared(get, entry, me, now) {
+  try {
+    const outcome = mapOutcome((await get(mergeRequestUrl(entry.projectId, entry.iid))).body);
+    const event = outcomeEvent(outcome, me, now);
+    return { entry: null, events: event ? [event] : [] };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return { entry: null, events: [] };
+    throw error;
+  }
+}
+
+/**
+ * One detection pass over a fresh snapshot (notifications design §4.2, §4.4).
+ *
+ * Returns the watch to store, the new events, and every fetch failure. A failure never
+ * rejects the pass: its entry stays as `planWatch` returned it, so the next poll retries it and
+ * nothing is lost or raised twice. A disappeared merge request that answers 404 is gone for good
+ * and is removed without a failure. `now` stamps an outcome GitLab reports without a timestamp.
+ */
+export async function collectEvents({ watch, snapshot, me, get, now }) {
+  const plan = planWatch(watch, snapshot);
+  const mrs = new Map(
+    [...(snapshot.reviews ?? []), ...(snapshot.mine ?? [])].map((mr) => [String(mr.id), mr]),
+  );
+  const jobs = [
+    ...plan.changed.map((id) => [id, inspectChanged(get, plan.watch[id], mrs.get(id), me)]),
+    ...plan.disappeared.map((id) => [id, inspectDisappeared(get, plan.watch[id], me, now)]),
+  ];
+  const settled = await Promise.allSettled(jobs.map(([, job]) => job));
+
+  const next = { ...plan.watch };
+  const added = [];
+  const failures = [];
+  settled.forEach((result, index) => {
+    const [id] = jobs[index];
+    if (result.status === 'rejected') {
+      failures.push(result.reason);
+      return;
+    }
+    if (result.value.entry) next[id] = result.value.entry;
+    else delete next[id];
+    added.push(...result.value.events);
+  });
+  return { watch: next, added, failures };
 }
