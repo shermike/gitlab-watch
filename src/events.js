@@ -3,6 +3,9 @@
  * function the caller passes in, so this module runs under `node --test` unchanged.
  */
 
+import { EVENTS_MAX, EVENTS_MAX_AGE_MS, EXCERPT_MAX } from './config.js';
+import { coveredByTodo } from './store.js';
+
 /** A note by someone else on an MR the user reviews; a reply only if its thread holds the user. */
 export const REPLY_CANDIDATE = 'reply_candidate';
 
@@ -112,4 +115,58 @@ export function replyNoteIds(discussions, candidateIds, me) {
 export function advanceEntry(entry, mr, notes) {
   const newest = notes.reduce((max, note) => Math.max(max, note.id), entry.lastNoteId);
   return { ...entry, updatedAt: mr.updatedAt, notesCount: mr.notesCount, lastNoteId: newest };
+}
+
+/** The stored event for a classified note (notifications design §5). */
+export function noteEvent(kind, note, mr) {
+  return {
+    id: `note:${note.id}`,
+    kind,
+    mrTitle: mr.title,
+    mrReference: mr.reference,
+    url: mr.url ? `${mr.url}#note_${note.id}` : '',
+    actorName: note.authorName,
+    actorAvatar: note.authorAvatar,
+    excerpt: note.system ? '' : note.body.replace(/\s+/g, ' ').trim().slice(0, EXCERPT_MAX),
+    createdAt: note.createdAt,
+  };
+}
+
+/**
+ * The stored event for a merge request that left the open list, or null when it is still open
+ * or the user did it themselves (notifications design §4.2 step 4). An outcome GitLab reports
+ * without an actor or a timestamp is still an event: an empty name and the detection time are
+ * better than a lost merge.
+ */
+export function outcomeEvent(outcome, me, now) {
+  if (outcome.state !== 'merged' && outcome.state !== 'closed') return null;
+  if (outcome.actor?.id === me.id) return null;
+  return {
+    id: `${outcome.state}:${outcome.id}`,
+    kind: outcome.state,
+    mrTitle: outcome.title,
+    mrReference: outcome.reference,
+    url: outcome.url,
+    actorName: outcome.actor?.name ?? '',
+    actorAvatar: outcome.actor?.avatar ?? '',
+    excerpt: '',
+    createdAt: outcome.at || now,
+  };
+}
+
+/**
+ * The events to store: stored and new merged, one per id, newest first, none a to-do covers,
+ * none older than `EVENTS_MAX_AGE_MS`, at most `EVENTS_MAX` (notifications design §5).
+ */
+export function mergeEvents(existing, added, todos, now) {
+  const cutoff = now - EVENTS_MAX_AGE_MS;
+  const seen = new Set();
+  return [...added, ...(existing ?? [])]
+    .filter((event) => {
+      if (seen.has(event.id)) return false;
+      seen.add(event.id);
+      return event.createdAt > cutoff && !coveredByTodo(event, todos);
+    })
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, EVENTS_MAX);
 }
