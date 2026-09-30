@@ -29,7 +29,7 @@ const AUTHOR_SYSTEM_NOTES = [
   ['requested changes', 'changes_requested'],
 ];
 
-/** The system note GitLab leaves when commits are pushed to a merge request (§4.3). */
+/** The system note GitLab leaves when commits are pushed to a merge request (notifications design §4.3). */
 const COMMITS_NOTE = /^added \d+ commits?\b/;
 
 /**

@@ -22,6 +22,7 @@ export const MRS_PER_PAGE = 50;
 // notes inside one poll interval is not a realistic personal workload (notifications design §4.2).
 export const NOTES_PER_PAGE = 100;
 
+// Discussions per page of the reply walk (notifications design §4.2 step 3).
 export const DISCUSSIONS_PER_PAGE = 100;
 
 // The discussion walk that finds replies stops after this many pages; notes it did not reach are

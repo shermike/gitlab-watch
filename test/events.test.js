@@ -121,6 +121,18 @@ test('newNotes stops at the baseline on the first fetch', async () => {
   );
 });
 
+test('newNotes excludes a note created exactly at the baseline and keeps one a millisecond later', () => {
+  const since = T(9, 30);
+  const notes = [
+    mapNote({ id: 2, created_at: new Date(since + 1).toISOString(), author: { id: 1 } }),
+    mapNote({ id: 1, created_at: new Date(since).toISOString(), author: { id: 1 } }),
+  ];
+  assert.deepEqual(
+    newNotes(notes, entry({ since })).map((note) => note.id),
+    [2],
+  );
+});
+
 test('classifyNote on the user\'s own MR', async () => {
   const notes = await notesFixture('author_notes');
   const kinds = Object.fromEntries(notes.map((note) => [note.id, classifyNote(note, entry(), ME)]));
