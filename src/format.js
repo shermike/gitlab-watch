@@ -50,3 +50,11 @@ const EVENT_LABELS = {
 export function eventLabel(kind) {
   return EVENT_LABELS[kind] ?? humaniseAction(kind);
 }
+
+/**
+ * Who is asked to review a merge request, as the muted line of a Mine row shows it: every
+ * reviewer's name in GitLab's order, or "No reviewers" when nobody is.
+ */
+export function reviewerLabel(names) {
+  return names?.length ? names.join(', ') : 'No reviewers';
+}

@@ -1,4 +1,4 @@
-import { eventLabel, humaniseAction, relativeTime } from '../format.js';
+import { eventLabel, humaniseAction, relativeTime, reviewerLabel } from '../format.js';
 import { TABS, notificationFeed, onChanged, read, resolveTab, write } from '../store.js';
 
 const EMPTY_MESSAGES = {
@@ -79,13 +79,27 @@ function titleFor(item) {
   return item.title;
 }
 
-function metaFor(item) {
+/**
+ * The person a row is about, for its muted line and its avatar: an event's actor, a to-do's or a
+ * reviewed MR's author, and on the Mine tab — where the author is always the user — the MR's
+ * reviewers, with the first one's avatar.
+ */
+function personFor(item, tab) {
+  if (item.source === 'event') return { name: item.actorName, avatar: item.actorAvatar };
+  if (tab === 'mine') {
+    return { name: reviewerLabel(item.reviewerNames), avatar: item.reviewerAvatar };
+  }
+  return { name: item.authorName, avatar: item.authorAvatar };
+}
+
+function metaFor(item, tab) {
+  const { name } = personFor(item, tab);
   const parts =
     item.source === 'event'
-      ? [item.mrReference, item.actorName, relativeTime(item.createdAt)]
+      ? [item.mrReference, name, relativeTime(item.createdAt)]
       : item.source === 'todo'
-        ? [item.project, item.authorName, relativeTime(item.createdAt)]
-        : [item.reference, item.authorName, relativeTime(item.updatedAt)];
+        ? [item.project, name, relativeTime(item.createdAt)]
+        : [item.reference, name, relativeTime(item.updatedAt)];
   return parts.filter(Boolean).join(' · ');
 }
 
@@ -120,15 +134,15 @@ async function markRead(item) {
 function buildRow(item, tab) {
   const node = rowTemplate.content.firstElementChild.cloneNode(true);
   const open = node.querySelector('.row-open');
-  const isEvent = item.source === 'event';
+  const person = personFor(item, tab);
 
   const avatar = open.querySelector('.row-avatar');
-  setAvatar(avatar, (isEvent ? item.actorAvatar : item.authorAvatar) ?? '');
-  avatar.alt = (isEvent ? item.actorName : item.authorName) ?? '';
+  setAvatar(avatar, person.avatar ?? '');
+  avatar.alt = person.avatar ? (person.name ?? '') : '';
 
   open.querySelector('.chip').hidden = item.draft !== true;
   open.querySelector('.row-title-text').textContent = titleFor(item);
-  open.querySelector('.row-meta').textContent = metaFor(item);
+  open.querySelector('.row-meta').textContent = metaFor(item, tab);
   open.title = tooltipFor(item);
 
   open.addEventListener('click', async () => {

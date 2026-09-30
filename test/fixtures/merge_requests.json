@@ -9,6 +9,10 @@
     "author": { "name": "Ada Lovelace", "avatar_url": "https://gitlab.com/uploads/ada.png" },
     "updated_at": "2026-09-09T09:20:00.000Z",
     "user_notes_count": 3,
+    "reviewers": [
+      { "id": 2, "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" },
+      { "id": 3, "name": "Linus Torvalds", "avatar_url": "https://gitlab.com/uploads/linus.png" }
+    ],
     "draft": false
   },
   {
@@ -21,6 +25,7 @@
     "author": { "name": "Grace Hopper", "avatar_url": "https://gitlab.com/uploads/grace.png" },
     "updated_at": "2026-09-09T07:00:00.000Z",
     "user_notes_count": 0,
+    "reviewers": [],
     "draft": true
   }
 ]

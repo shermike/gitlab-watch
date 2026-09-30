@@ -143,6 +143,8 @@ export function mapMr(raw) {
     authorAvatar: raw.author?.avatar_url ?? '',
     updatedAt: epochMs(raw.updated_at),
     notesCount: raw.user_notes_count ?? 0,
+    reviewerNames: (raw.reviewers ?? []).map((reviewer) => reviewer.name ?? ''),
+    reviewerAvatar: raw.reviewers?.[0]?.avatar_url ?? '',
     draft: raw.draft === true || raw.work_in_progress === true,
   };
 }

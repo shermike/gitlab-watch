@@ -159,6 +159,8 @@ test('mapMr takes the project and number from references.full', async () => {
     authorAvatar: 'https://gitlab.com/uploads/ada.png',
     updatedAt: Date.UTC(2026, 8, 9, 9, 20, 0),
     notesCount: 3,
+    reviewerNames: ['Grace Hopper', 'Linus Torvalds'],
+    reviewerAvatar: 'https://gitlab.com/uploads/grace.png',
     draft: false,
   });
 });
@@ -176,6 +178,8 @@ test('mapMr flags a draft and strips the prefix the chip already says', async ()
     authorAvatar: 'https://gitlab.com/uploads/grace.png',
     updatedAt: Date.UTC(2026, 8, 9, 7, 0, 0),
     notesCount: 0,
+    reviewerNames: [],
+    reviewerAvatar: '',
     draft: true,
   });
 });
@@ -198,6 +202,8 @@ test('mapMr tolerates an MR stripped of every optional field', () => {
     authorAvatar: '',
     updatedAt: 0,
     notesCount: 0,
+    reviewerNames: [],
+    reviewerAvatar: '',
     draft: false,
   });
 });
