@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { badgeText, humaniseAction, relativeTime } from '../src/format.js';
+import { badgeText, eventLabel, humaniseAction, relativeTime } from '../src/format.js';
 
 test('badgeText hides a zero count and caps at 99+', () => {
   assert.equal(badgeText(0), '');
@@ -47,4 +47,19 @@ test('humaniseAction replaces underscores and capitalises the first word only', 
   assert.equal(humaniseAction('mentioned'), 'Mentioned');
   assert.equal(humaniseAction(''), '');
   assert.equal(humaniseAction(undefined), '');
+});
+
+test('eventLabel names every event kind', () => {
+  assert.equal(eventLabel('comment'), 'New comment');
+  assert.equal(eventLabel('reply'), 'Reply in your thread');
+  assert.equal(eventLabel('commits'), 'New commits');
+  assert.equal(eventLabel('approved'), 'Approved');
+  assert.equal(eventLabel('unapproved'), 'Approval revoked');
+  assert.equal(eventLabel('changes_requested'), 'Changes requested');
+  assert.equal(eventLabel('merged'), 'Merged');
+  assert.equal(eventLabel('closed'), 'Closed');
+});
+
+test('eventLabel falls back to a sentence-case kind', () => {
+  assert.equal(eventLabel('something_new'), 'Something new');
 });

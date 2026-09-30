@@ -1,14 +1,15 @@
-import { humaniseAction, relativeTime } from '../format.js';
-import { onChanged, read, unread, write } from '../store.js';
-
-// The tab ids the markup carries until the Notifications tab lands (plan Task 9).
-const TABS = ['todos', 'reviews', 'mine'];
+import { eventLabel, humaniseAction, relativeTime } from '../format.js';
+import { TABS, notificationFeed, onChanged, read, resolveTab, write } from '../store.js';
 
 const EMPTY_MESSAGES = {
-  todos: 'No pending to-dos.',
+  notifications: 'No notifications.',
   reviews: 'Nothing is waiting on your review.',
   mine: 'You have no open merge requests.',
 };
+
+// The snapshot list whose truncation each tab reports. Events are held locally and never cut
+// short by a page size, so the Notifications tab reports the to-do list's (design §7).
+const TRUNCATION_KEYS = { notifications: 'todos', reviews: 'reviews', mine: 'mine' };
 
 const byId = (id) => document.getElementById(id);
 const rowTemplate = byId('row-template');
@@ -45,46 +46,59 @@ function renderHeader(me) {
   byId('username').textContent = me?.username ? `@${me.username}` : '';
 }
 
-function renderTabs(inbox, readIds, activeTab) {
+function renderTabs(inbox, events, readIds, activeTab) {
   for (const tab of TABS) {
     document
       .querySelector(`.tab[data-tab="${tab}"]`)
       .setAttribute('aria-selected', String(tab === activeTab));
     document.querySelector(`.count[data-count="${tab}"]`).textContent = inbox
-      ? String(visibleItems(inbox, readIds, tab).length)
+      ? String(visibleItems(inbox, events, readIds, tab).length)
       : '';
   }
 }
 
 /**
- * The rows a tab shows. Only to-dos can be marked read: the other two lists mirror live
- * GitLab state, where hiding a row would just lose the user a merge request that is still
- * open and still theirs.
+ * The rows a tab shows. Only the Notifications tab can be marked read: the other two lists
+ * mirror live GitLab state, where hiding a row would just lose the user a merge request that is
+ * still open and still theirs.
  */
-function visibleItems(inbox, readIds, tab) {
-  return tab === 'todos' ? unread(inbox.todos, readIds) : (inbox[tab] ?? []);
+function visibleItems(inbox, events, readIds, tab) {
+  return tab === 'notifications'
+    ? notificationFeed(inbox, events, readIds)
+    : (inbox[tab] ?? []);
 }
 
 /**
- * The row's lead line. A to-do leads with what it asks of the user — "Review requested" — and
- * keeps its subject in the tooltip; a to-do with no action name has nothing else to lead with,
- * so it falls back to the subject. A merge request has no action and leads with its title.
+ * The row's lead line. An event leads with its kind, a to-do with what it asks of the user —
+ * "Review requested" — falling back to its subject when it has no action name; a merge request
+ * leads with its title.
  */
-function titleFor(item, tab) {
-  if (tab !== 'todos') return item.title;
-  return humaniseAction(item.actionName) || item.title;
+function titleFor(item) {
+  if (item.source === 'event') return eventLabel(item.kind);
+  if (item.source === 'todo') return humaniseAction(item.actionName) || item.title;
+  return item.title;
 }
 
-function metaFor(item, tab) {
+function metaFor(item) {
   const parts =
-    tab === 'todos'
-      ? [item.project, item.authorName, relativeTime(item.createdAt)]
-      : [item.reference, item.authorName, relativeTime(item.updatedAt)];
+    item.source === 'event'
+      ? [item.mrReference, item.actorName, relativeTime(item.createdAt)]
+      : item.source === 'todo'
+        ? [item.project, item.authorName, relativeTime(item.createdAt)]
+        : [item.reference, item.authorName, relativeTime(item.updatedAt)];
   return parts.filter(Boolean).join(' · ');
 }
 
+/** An event's tooltip carries its MR title and, for a comment, the excerpt (notifications design §6). */
+function tooltipFor(item) {
+  if (item.source !== 'event') return item.title;
+  return item.excerpt ? `${item.mrTitle}
+
+${item.excerpt}` : item.mrTitle;
+}
+
 /**
- * Hides a to-do for good. The worker owns the write, as it does every other mutation
+ * Hides a to-do or an event for good. The worker owns the write, as it does every other mutation
  * (design §10), and the local copy is marked too so the row leaves on the click rather than a
  * message round trip later.
  *
@@ -98,48 +112,48 @@ async function markRead(item) {
 }
 
 /**
- * Builds one row from the template. Titles come from the API, so every insertion goes through
- * textContent — never innerHTML.
+ * Builds one row from the template. Titles and comments come from the API, so every insertion
+ * goes through textContent — never innerHTML.
+ *
+ * A row whose target was deleted has no URL; clicking it does nothing rather than closing the
+ * popup with nothing to show. The read button is removed, not hidden, on the other tabs:
+ * `.row-read` sets its own `display`, which would beat `[hidden] { display: none }`.
  */
 function buildRow(item, tab) {
   const node = rowTemplate.content.firstElementChild.cloneNode(true);
   const open = node.querySelector('.row-open');
+  const isEvent = item.source === 'event';
 
   const avatar = open.querySelector('.row-avatar');
-  setAvatar(avatar, item.authorAvatar ?? '');
-  avatar.alt = item.authorName ?? '';
+  setAvatar(avatar, (isEvent ? item.actorAvatar : item.authorAvatar) ?? '');
+  avatar.alt = (isEvent ? item.actorName : item.authorName) ?? '';
 
   open.querySelector('.chip').hidden = item.draft !== true;
-  open.querySelector('.row-title-text').textContent = titleFor(item, tab);
-  open.querySelector('.row-meta').textContent = metaFor(item, tab);
-  // On a to-do the subject is not on the row at all, so the tooltip is where it lives.
-  open.title = item.title;
+  open.querySelector('.row-title-text').textContent = titleFor(item);
+  open.querySelector('.row-meta').textContent = metaFor(item);
+  open.title = tooltipFor(item);
 
   open.addEventListener('click', async () => {
-    // A to-do or MR whose target was deleted has no URL; the row must not look clickable by
-    // closing the popup with nothing to show for it, and nothing has been read either.
     if (!item.url) return;
-    if (tab === 'todos') await markRead(item);
+    if (tab === 'notifications') await markRead(item);
     chrome.tabs.create({ url: item.url });
     window.close();
   });
 
   const readButton = node.querySelector('.row-read');
-  if (tab === 'todos') {
+  if (tab === 'notifications') {
     readButton.addEventListener('click', () => {
       markRead(item);
       render();
     });
   } else {
-    // Removed rather than hidden: `.row-read` sets its own `display`, which would beat the
-    // browser's `[hidden] { display: none }` and leave a dead button on the row.
     readButton.remove();
   }
 
   return node;
 }
 
-function renderList(inbox, readIds, activeTab) {
+function renderList(inbox, events, readIds, activeTab) {
   const warning = byId('warning');
   const empty = byId('empty');
   const truncated = byId('truncated');
@@ -167,13 +181,13 @@ function renderList(inbox, readIds, activeTab) {
     return;
   }
 
-  const items = visibleItems(inbox, readIds, activeTab);
+  const items = visibleItems(inbox, events, readIds, activeTab);
   byId('list').replaceChildren(...items.map((item) => buildRow(item, activeTab)));
 
   if (items.length === 0) {
     empty.textContent = EMPTY_MESSAGES[activeTab];
     empty.hidden = false;
-  } else if (inbox.truncated?.[activeTab]) {
+  } else if (inbox.truncated?.[TRUNCATION_KEYS[activeTab]]) {
     truncated.textContent = `Showing the first ${items.length}. Open GitLab for the rest.`;
     truncated.hidden = false;
   }
@@ -184,7 +198,7 @@ function renderFooter(inbox) {
 }
 
 function render() {
-  const { auth, me, inbox, readIds, ui } = state;
+  const { auth, me, inbox, readIds, ui, events } = state;
   // A dead session renders as the sign-in screen even though `auth` was already cleared
   // (design §9, state 5).
   const signedIn = auth !== null && inbox?.error?.kind !== 'auth';
@@ -197,10 +211,10 @@ function render() {
     return;
   }
 
-  const activeTab = TABS.includes(ui?.activeTab) ? ui.activeTab : 'todos';
+  const activeTab = resolveTab(ui?.activeTab);
   renderHeader(me);
-  renderTabs(inbox, readIds, activeTab);
-  renderList(inbox, readIds, activeTab);
+  renderTabs(inbox, events, readIds, activeTab);
+  renderList(inbox, events, readIds, activeTab);
   renderFooter(inbox);
 }
 
