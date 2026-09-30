@@ -1,7 +1,7 @@
 # GitLab Inbox — Notifications
 
 Date: 2026-09-30
-Status: draft, awaiting review
+Status: implemented; the §8 assumption is not yet verified on gitlab.com
 
 Extends [`2026-09-09-gitlab-inbox-design.md`](2026-09-09-gitlab-inbox-design.md). Where the two
 disagree, this document wins; the sections it replaces are named in §10.
