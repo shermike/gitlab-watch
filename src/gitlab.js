@@ -1,4 +1,10 @@
-import { GITLAB_HOST, MRS_PER_PAGE, TODOS_PER_PAGE } from './config.js';
+import {
+  DISCUSSIONS_PER_PAGE,
+  GITLAB_HOST,
+  MRS_PER_PAGE,
+  NOTES_PER_PAGE,
+  TODOS_PER_PAGE,
+} from './config.js';
 
 const API = `${GITLAB_HOST}/api/v4`;
 
@@ -29,6 +35,27 @@ export function reviewsUrl(userId) {
 
 export function mineUrl(userId) {
   return mergeRequestsUrl(`author_id=${userId}`);
+}
+
+/** The newest page of one merge request's notes, newest first (notifications design §4.2). */
+export function notesUrl(projectId, iid) {
+  return (
+    `${API}/projects/${projectId}/merge_requests/${iid}/notes` +
+    `?sort=desc&order_by=created_at&per_page=${NOTES_PER_PAGE}`
+  );
+}
+
+/** One page of a merge request's discussions, oldest first as GitLab returns them. */
+export function discussionsUrl(projectId, iid, page) {
+  return (
+    `${API}/projects/${projectId}/merge_requests/${iid}/discussions` +
+    `?per_page=${DISCUSSIONS_PER_PAGE}&page=${page}`
+  );
+}
+
+/** One merge request, whatever its state (notifications design §4.2 step 4). */
+export function mergeRequestUrl(projectId, iid) {
+  return `${API}/projects/${projectId}/merge_requests/${iid}`;
 }
 
 /**
@@ -105,6 +132,8 @@ export function mapTodo(raw) {
 export function mapMr(raw) {
   return {
     id: raw.id,
+    projectId: raw.project_id ?? 0,
+    iid: raw.iid ?? 0,
     title: (raw.title ?? '').replace(DRAFT_PREFIX, ''),
     url: raw.web_url ?? '',
     // `references.full` is "group/project!123": the project path and the MR number in one
@@ -113,6 +142,57 @@ export function mapMr(raw) {
     authorName: raw.author?.name ?? '',
     authorAvatar: raw.author?.avatar_url ?? '',
     updatedAt: epochMs(raw.updated_at),
+    notesCount: raw.user_notes_count ?? 0,
     draft: raw.draft === true || raw.work_in_progress === true,
+  };
+}
+
+/** A note as the event classifier reads it (notifications design §4.3). */
+export function mapNote(raw) {
+  return {
+    id: raw.id,
+    body: raw.body ?? '',
+    system: raw.system === true,
+    authorId: raw.author?.id ?? 0,
+    authorName: raw.author?.name ?? '',
+    authorAvatar: raw.author?.avatar_url ?? '',
+    createdAt: epochMs(raw.created_at),
+  };
+}
+
+/**
+ * A discussion reduced to what reply detection needs. `individual` marks a stand-alone note,
+ * which is never a thread anyone replied in (notifications design §4.2 step 3).
+ */
+export function mapDiscussion(raw) {
+  return {
+    individual: raw.individual_note === true,
+    notes: (raw.notes ?? []).map(mapNote),
+  };
+}
+
+function mapActor(raw) {
+  return raw ? { id: raw.id, name: raw.name ?? '', avatar: raw.avatar_url ?? '' } : null;
+}
+
+/**
+ * What became of a merge request that left the open list, and who did it
+ * (notifications design §4.2 step 4). `merge_user` also names whoever set auto-merge;
+ * `merged_by` is its deprecated predecessor, read only when `merge_user` is absent.
+ * `actor` is null and `at` is 0 for any state other than merged or closed.
+ */
+export function mapOutcome(raw) {
+  const state = raw.state ?? '';
+  const actor =
+    state === 'merged' ? (raw.merge_user ?? raw.merged_by) : state === 'closed' ? raw.closed_by : null;
+  const at = state === 'merged' ? raw.merged_at : state === 'closed' ? raw.closed_at : null;
+  return {
+    id: raw.id,
+    state,
+    title: (raw.title ?? '').replace(DRAFT_PREFIX, ''),
+    url: raw.web_url ?? '',
+    reference: raw.references?.full ?? '',
+    actor: mapActor(actor),
+    at: epochMs(at),
   };
 }
