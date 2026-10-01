@@ -17,7 +17,7 @@ events below are the ones it does not raise a to-do for, and that the user still
 |---|---|---|
 | `comment` | someone other than the user leaves a comment | mine |
 | `reply` | someone other than the user replies in a thread the user has a note in | reviews |
-| `commits` | someone other than the user pushes commits | reviews |
+| `commits` | someone other than the user pushes commits | mine, reviews |
 | `approved` | someone approves | mine |
 | `unapproved` | someone revokes an approval | mine |
 | `changes_requested` | a reviewer requests changes | mine |
@@ -108,7 +108,7 @@ A pure function, `classifyNote(note, entry, me)`, in a new module `src/events.js
 | `system: true`, body starts `approved this merge request` | author | `approved` |
 | `system: true`, body starts `unapproved this merge request` | author | `unapproved` |
 | `system: true`, body starts `requested changes` | author | `changes_requested` |
-| `system: true`, body matches `^added \d+ commits?\b` | reviewer | `commits` |
+| `system: true`, body matches `^added \d+ commits?\b` | any | `commits` |
 | anything else | any | none |
 
 The system-note bodies above are GitLab's current English wording. The test fixtures are written

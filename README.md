@@ -192,7 +192,8 @@ GitLab recorded when a row does not appear.
       with their own label.
 - [ ] Chrome  [ ] Edge — A reply in a thread you started on a reviewed MR appears as "Reply in
       your thread"; a comment in a thread you are not in does not.
-- [ ] Chrome  [ ] Edge — A push to a reviewed MR appears as "New commits".
+- [ ] Chrome  [ ] Edge — A push by someone else to a reviewed MR or to your own MR appears as
+      "New commits"; your own push raises nothing.
 - [ ] Chrome  [ ] Edge — Your MR merged by someone else appears as "Merged"; merged by you,
       nothing appears.
 - [ ] Chrome  [ ] Edge — Your MR closed by someone else appears as "Closed"; closed by you,
