@@ -29,7 +29,10 @@ const AUTHOR_SYSTEM_NOTES = [
   ['requested changes', 'changes_requested'],
 ];
 
-/** The system note GitLab leaves when commits are pushed to a merge request (notifications design §4.3). */
+/**
+ * The system note GitLab leaves when commits are pushed to a merge request, on either role
+ * (notifications design §4.3).
+ */
 const COMMITS_NOTE = /^added \d+ commits?\b/;
 
 /**
@@ -94,11 +97,10 @@ export function newNotes(notes, entry) {
 export function classifyNote(note, entry, me) {
   if (note.authorId === me.id) return null;
   if (!note.system) return entry.role === 'author' ? 'comment' : REPLY_CANDIDATE;
-  if (entry.role === 'author') {
-    const match = AUTHOR_SYSTEM_NOTES.find(([prefix]) => note.body.startsWith(prefix));
-    return match ? match[1] : null;
-  }
-  return COMMITS_NOTE.test(note.body) ? 'commits' : null;
+  if (COMMITS_NOTE.test(note.body)) return 'commits';
+  if (entry.role !== 'author') return null;
+  const match = AUTHOR_SYSTEM_NOTES.find(([prefix]) => note.body.startsWith(prefix));
+  return match ? match[1] : null;
 }
 
 /**

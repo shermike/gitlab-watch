@@ -169,6 +169,17 @@ test('classifyNote ignores approvals on an MR the user only reviews', () => {
 test('classifyNote does not read a label note as commits', () => {
   const note = mapNote({ id: 1, body: 'added ~"commit-msg" label', system: true, author: { id: 2 } });
   assert.equal(classifyNote(note, entry({ role: 'reviewer' }), ME), null);
+  assert.equal(classifyNote(note, entry({ role: 'author' }), ME), null);
+});
+
+test('classifyNote raises commits a colleague pushes to the user’s own MR', () => {
+  const pushed = mapNote({
+    id: 1,
+    body: 'added 1 commit\n\n<ul><li>aaa1111 - Fix the flag</li></ul>',
+    system: true,
+    author: { id: 2 },
+  });
+  assert.equal(classifyNote(pushed, entry({ role: 'author' }), ME), 'commits');
 });
 
 test('replyNoteIds keeps only notes in a thread the user has a note in', async () => {
